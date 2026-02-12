@@ -7,6 +7,7 @@ import '../../../core/widgets/discipline_scaffold.dart';
 import '../model/community_models.dart';
 import 'screens/group_detail_screen.dart';
 import 'screens/join_create_group_sheet.dart';
+import 'screens/private_chat_screen.dart';
 import 'widgets/community_post_card.dart';
 
 class CommunityHomeScreen extends StatelessWidget {
@@ -81,7 +82,31 @@ class CommunityHomeScreen extends StatelessWidget {
           ...posts.map(
             (p) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: CommunityPostCard(post: p),
+              child: CommunityPostCard(
+                post: p,
+                onReply: () {
+                  final seed = ChatMessage(
+                    fromAlias: p.alias,
+                    text: p.message,
+                    isMe: false,
+                  );
+                  Navigator.of(context).push(
+                    DisciplinePageRoute<void>(
+                      builder: (_) => PrivateChatScreen(
+                        peerAlias: p.alias,
+                        initialReplyTo: seed,
+                      ),
+                    ),
+                  );
+                },
+                onChat: () {
+                  Navigator.of(context).push(
+                    DisciplinePageRoute<void>(
+                      builder: (_) => PrivateChatScreen(peerAlias: p.alias),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],

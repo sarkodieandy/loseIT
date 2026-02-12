@@ -65,13 +65,21 @@ class RiskIndicator extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
             const Text('Risk Level', style: DisciplineTextStyles.caption),
-            AnimatedDefaultTextStyle(
+            AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
-              style: DisciplineTextStyles.caption.copyWith(
-                color: activeColor,
-                fontWeight: FontWeight.w700,
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeOutCubic,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              child: Text(
+                _labelFor(level),
+                key: ValueKey<RiskLevel>(level),
+                style: DisciplineTextStyles.caption.copyWith(
+                  color: activeColor,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-              child: Text(_labelFor(level)),
             ),
           ],
         ),

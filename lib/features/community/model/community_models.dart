@@ -38,9 +38,13 @@ class ChatMessage {
     required this.fromAlias,
     required this.text,
     required this.isMe,
+    this.replyToAlias,
+    this.replyToText,
   });
 
   final String fromAlias;
   final String text;
   final bool isMe;
+  final String? replyToAlias;
+  final String? replyToText;
 }

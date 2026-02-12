@@ -6,10 +6,18 @@ import '../../../../core/widgets/discipline_card.dart';
 import '../../model/community_models.dart';
 
 class CommunityPostCard extends StatelessWidget {
-  const CommunityPostCard({super.key, required this.post, this.onTap});
+  const CommunityPostCard({
+    super.key,
+    required this.post,
+    this.onTap,
+    this.onReply,
+    this.onChat,
+  });
 
   final CommunityPost post;
   final VoidCallback? onTap;
+  final VoidCallback? onReply;
+  final VoidCallback? onChat;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +62,56 @@ class CommunityPostCard extends StatelessWidget {
             style: DisciplineTextStyles.caption.copyWith(
               color: DisciplineColors.textTertiary,
             ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              CupertinoButton(
+                minimumSize: Size.zero,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                onPressed: onReply,
+                child: Row(
+                  children: <Widget>[
+                    const Icon(
+                      CupertinoIcons.reply,
+                      size: 14,
+                      color: DisciplineColors.textSecondary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Reply',
+                      style: DisciplineTextStyles.caption.copyWith(
+                        color: DisciplineColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              CupertinoButton(
+                minimumSize: Size.zero,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                onPressed: onChat,
+                child: Row(
+                  children: <Widget>[
+                    const Icon(
+                      CupertinoIcons.chat_bubble_2,
+                      size: 14,
+                      color: DisciplineColors.accent,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Chat',
+                      style: DisciplineTextStyles.caption.copyWith(
+                        color: DisciplineColors.accent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

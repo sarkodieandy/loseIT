@@ -1,13 +1,11 @@
 import 'package:flutter/cupertino.dart';
 
-import '../../../../app/app_controller.dart';
 import '../../../../core/navigation/discipline_page_route.dart';
 import '../../../../core/theme/discipline_colors.dart';
 import '../../../../core/theme/discipline_text_styles.dart';
 import '../../../../core/widgets/discipline_button.dart';
 import '../../../../core/widgets/discipline_card.dart';
 import '../../../../core/widgets/discipline_scaffold.dart';
-import '../../../profile/presentation/screens/subscription_screen.dart';
 import '../../model/community_models.dart';
 import '../widgets/member_avatar.dart';
 import 'private_chat_screen.dart';
@@ -19,8 +17,6 @@ class GroupDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final app = AppScope.of(context);
-
     return DisciplineScaffold(
       title: 'Group',
       child: ListView(
@@ -47,10 +43,27 @@ class GroupDetailScreen extends StatelessWidget {
                           (m) => Padding(
                             padding: const EdgeInsets.only(right: 14),
                             child: MemberAvatar(
-                                alias: m.alias, streakDays: m.streakDays),
+                              alias: m.alias,
+                              streakDays: m.streakDays,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  DisciplinePageRoute<void>(
+                                    builder: (_) =>
+                                        PrivateChatScreen(peerAlias: m.alias),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         )
                         .toList(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Tap a member to open direct chat.',
+                  style: DisciplineTextStyles.caption.copyWith(
+                    color: DisciplineColors.textTertiary,
                   ),
                 ),
               ],
@@ -85,19 +98,11 @@ class GroupDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           DisciplineButton(
-            label: 'Open Private Chat (Premium)',
+            label: 'Open Group Chat',
             onPressed: () {
-              if (app.state.isPremium) {
-                Navigator.of(context).push(
-                  DisciplinePageRoute<void>(
-                    builder: (_) => PrivateChatScreen(group: group),
-                  ),
-                );
-                return;
-              }
               Navigator.of(context).push(
                 DisciplinePageRoute<void>(
-                  builder: (_) => const SubscriptionScreen(),
+                  builder: (_) => PrivateChatScreen(group: group),
                 ),
               );
             },

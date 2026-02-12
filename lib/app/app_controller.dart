@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
 import '../core/models/risk_level.dart';
+import '../core/theme/theme_preference.dart';
 import '../features/onboarding/model/onboarding_profile.dart';
 import '../services/discipline_services.dart';
 import 'app_state.dart';
@@ -44,6 +45,11 @@ class AppController extends ChangeNotifier {
 
   void setPremium(bool value) {
     _state = _state.copyWith(isPremium: value);
+    notifyListeners();
+  }
+
+  void setThemePreference(ThemePreference preference) {
+    _state = _state.copyWith(themePreference: preference);
     notifyListeners();
   }
 

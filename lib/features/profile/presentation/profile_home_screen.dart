@@ -4,6 +4,7 @@ import '../../../app/app_controller.dart';
 import '../../../core/navigation/discipline_page_route.dart';
 import '../../../core/theme/discipline_colors.dart';
 import '../../../core/theme/discipline_text_styles.dart';
+import '../../../core/theme/theme_preference.dart';
 import '../../../core/widgets/discipline_button.dart';
 import '../../../core/widgets/discipline_card.dart';
 import '../../../core/widgets/discipline_scaffold.dart';
@@ -73,6 +74,14 @@ class ProfileHomeScreen extends StatelessWidget {
           );
         }
 
+        String themeLabel(ThemePreference preference) {
+          return switch (preference) {
+            ThemePreference.system => 'System',
+            ThemePreference.light => 'Light',
+            ThemePreference.dark => 'Dark',
+          };
+        }
+
         return DisciplineScaffold(
           title: 'Profile',
           child: ListView(
@@ -85,6 +94,95 @@ class ProfileHomeScreen extends StatelessWidget {
                 style: DisciplineTextStyles.secondary.copyWith(fontSize: 14),
               ),
               const SizedBox(height: 18),
+              DisciplineCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        const Icon(
+                          CupertinoIcons.moon_stars,
+                          color: DisciplineColors.accent,
+                          size: 19,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Appearance',
+                          style: DisciplineTextStyles.section.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          themeLabel(state.themePreference),
+                          style: DisciplineTextStyles.caption.copyWith(
+                            color: DisciplineColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Follow system theme or choose a fixed mode.',
+                      style: DisciplineTextStyles.caption.copyWith(
+                        color: DisciplineColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    CupertinoSlidingSegmentedControl<ThemePreference>(
+                      groupValue: state.themePreference,
+                      backgroundColor: DisciplineColors.surface2,
+                      thumbColor: DisciplineColors.accent.withValues(
+                        alpha: 0.2,
+                      ),
+                      children: <ThemePreference, Widget>{
+                        ThemePreference.system: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          child: Text(
+                            'System',
+                            style: DisciplineTextStyles.caption.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        ThemePreference.light: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          child: Text(
+                            'Light',
+                            style: DisciplineTextStyles.caption.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        ThemePreference.dark: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          child: Text(
+                            'Dark',
+                            style: DisciplineTextStyles.caption.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      },
+                      onValueChanged: (selection) {
+                        if (selection == null) return;
+                        app.setThemePreference(selection);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
               DisciplineCard(
                 child: Row(
                   children: <Widget>[

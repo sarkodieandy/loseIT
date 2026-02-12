@@ -75,6 +75,12 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final isWide = media.size.width >= 540;
+    final isCompactHeight = media.size.height < 760;
+    final sidePadding = isWide ? 32.0 : 24.0;
+    final maxContentWidth = isWide ? 460.0 : double.infinity;
+
     final emailValid = _isValidEmail(_email.text);
     final report = _passwordReport(_password.text);
 
@@ -86,136 +92,148 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
 
     return DisciplineScaffold(
       title: 'Sign Up',
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: AnimatedPadding(
-        duration: DisciplineMotion.fast,
-        curve: DisciplineMotion.standard,
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.only(top: 8, bottom: 10),
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                children: <Widget>[
-                  const Center(child: DisciplineMark(size: 54)),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Continue with email.',
-                    style: DisciplineTextStyles.title,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'One account. Private by default.',
-                    style:
-                        DisciplineTextStyles.secondary.copyWith(fontSize: 14),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  DisciplineCard(
-                    shadow: false,
-                    borderColor:
-                        DisciplineColors.accent.withValues(alpha: 0.34),
-                    color: DisciplineColors.surface.withValues(alpha: 0.78),
-                    child: Row(
-                      children: <Widget>[
-                        const Icon(
-                          CupertinoIcons.shield_lefthalf_fill,
-                          color: DisciplineColors.accent,
-                          size: 18,
+      padding: EdgeInsets.symmetric(horizontal: sidePadding),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final bottomInset = media.viewInsets.bottom;
+          final minHeight = (constraints.maxHeight - bottomInset)
+              .clamp(0.0, double.infinity)
+              .toDouble();
+          return SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.only(
+              top: isCompactHeight ? 12 : 20,
+              bottom: bottomInset + (isCompactHeight ? 14 : 24),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minHeight),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxContentWidth),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Center(child: DisciplineMark(size: 54)),
+                      SizedBox(height: isCompactHeight ? 14 : 16),
+                      const Text(
+                        'Continue with email.',
+                        style: DisciplineTextStyles.title,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'One account. Private by default.',
+                        style: DisciplineTextStyles.secondary
+                            .copyWith(fontSize: 14),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: isCompactHeight ? 14 : 16),
+                      DisciplineCard(
+                        shadow: false,
+                        borderColor: DisciplineColors.accent.withValues(
+                          alpha: 0.34,
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'No marketing spam. Your data stays private.',
-                            style: DisciplineTextStyles.caption.copyWith(
-                              color: DisciplineColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  AutofillGroup(
-                    child: Column(
-                      children: <Widget>[
-                        DisciplineTextField(
-                          label: 'Email',
-                          placeholder: 'you@domain.com',
-                          controller: _email,
-                          focusNode: _emailFocus,
-                          keyboardType: TextInputType.emailAddress,
-                          textInputAction: TextInputAction.next,
-                          autofillHints: const <String>[AutofillHints.email],
-                          errorText: emailError,
-                          onSubmitted: (_) => _passwordFocus.requestFocus(),
-                        ),
-                        const SizedBox(height: 14),
-                        DisciplineTextField(
-                          label: 'Password',
-                          placeholder: '••••••••',
-                          controller: _password,
-                          focusNode: _passwordFocus,
-                          keyboardType: TextInputType.visiblePassword,
-                          textInputAction: TextInputAction.done,
-                          autofillHints: const <String>[AutofillHints.password],
-                          obscureText: _obscurePassword,
-                          errorText: passwordError,
-                          onSubmitted: (_) => _continue(),
-                          suffix: CupertinoButton(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            minimumSize: Size.zero,
-                            onPressed: () => setState(
-                              () => _obscurePassword = !_obscurePassword,
-                            ),
-                            child: Icon(
-                              _obscurePassword
-                                  ? CupertinoIcons.eye
-                                  : CupertinoIcons.eye_slash,
+                        color: DisciplineColors.surface.withValues(alpha: 0.78),
+                        child: Row(
+                          children: <Widget>[
+                            const Icon(
+                              CupertinoIcons.shield_lefthalf_fill,
+                              color: DisciplineColors.accent,
                               size: 18,
-                              color: DisciplineColors.textSecondary,
                             ),
-                          ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'No marketing spam. Your data stays private.',
+                                style: DisciplineTextStyles.caption.copyWith(
+                                  color: DisciplineColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                      SizedBox(height: isCompactHeight ? 14 : 16),
+                      AutofillGroup(
+                        child: Column(
+                          children: <Widget>[
+                            DisciplineTextField(
+                              label: 'Email',
+                              placeholder: 'you@domain.com',
+                              controller: _email,
+                              focusNode: _emailFocus,
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                              autofillHints: const <String>[
+                                AutofillHints.email
+                              ],
+                              errorText: emailError,
+                              onSubmitted: (_) => _passwordFocus.requestFocus(),
+                            ),
+                            const SizedBox(height: 14),
+                            DisciplineTextField(
+                              label: 'Password',
+                              placeholder: '••••••••',
+                              controller: _password,
+                              focusNode: _passwordFocus,
+                              keyboardType: TextInputType.visiblePassword,
+                              textInputAction: TextInputAction.done,
+                              autofillHints: const <String>[
+                                AutofillHints.password,
+                              ],
+                              obscureText: _obscurePassword,
+                              errorText: passwordError,
+                              onSubmitted: (_) => _continue(),
+                              suffix: CupertinoButton(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                minimumSize: Size.zero,
+                                onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                                child: Icon(
+                                  _obscurePassword
+                                      ? CupertinoIcons.eye
+                                      : CupertinoIcons.eye_slash,
+                                  size: 18,
+                                  color: DisciplineColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _PasswordStrengthCard(report: report),
+                      SizedBox(height: isCompactHeight ? 14 : 18),
+                      Text(
+                        'By continuing you agree to the Terms and Privacy Policy.',
+                        style: DisciplineTextStyles.caption.copyWith(
+                          color: DisciplineColors.textTertiary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      DisciplineTextButton(
+                        label: 'Already have an account? Log in',
+                        onPressed: () =>
+                            Navigator.of(context).pushNamed(AuthFlow.login),
+                      ),
+                      SizedBox(height: isCompactHeight ? 10 : 12),
+                      DisciplineButton(
+                        label: 'Create account',
+                        onPressed: _continue,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 14),
-                  _PasswordStrengthCard(report: report),
-                  const SizedBox(height: 18),
-                  Text(
-                    'By continuing you agree to the Terms and Privacy Policy.',
-                    style: DisciplineTextStyles.caption.copyWith(
-                      color: DisciplineColors.textTertiary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 4),
-                  DisciplineTextButton(
-                    label: 'Already have an account? Log in',
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed(AuthFlow.login),
-                  ),
-                ],
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            DisciplineButton(
-              label: 'Create account',
-              onPressed: _continue,
-            ),
-            const SizedBox(height: 14),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -319,14 +337,21 @@ class _PasswordStrengthCard extends StatelessWidget {
             children: <Widget>[
               const Text('Password strength',
                   style: DisciplineTextStyles.caption),
-              AnimatedDefaultTextStyle(
+              AnimatedSwitcher(
                 duration: DisciplineMotion.fast,
-                curve: DisciplineMotion.standard,
-                style: DisciplineTextStyles.caption.copyWith(
-                  color: _activeColor,
-                  fontWeight: FontWeight.w800,
+                switchInCurve: DisciplineMotion.standard,
+                switchOutCurve: DisciplineMotion.standard,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+                child: Text(
+                  _label,
+                  key: ValueKey<String>(_label),
+                  style: DisciplineTextStyles.caption.copyWith(
+                    color: _activeColor,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-                child: Text(_label),
               ),
             ],
           ),

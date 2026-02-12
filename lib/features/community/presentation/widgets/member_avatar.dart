@@ -8,10 +8,12 @@ class MemberAvatar extends StatelessWidget {
     super.key,
     required this.alias,
     required this.streakDays,
+    this.onTap,
   });
 
   final String alias;
   final int streakDays;
+  final VoidCallback? onTap;
 
   String get _initials {
     final parts =
@@ -25,7 +27,7 @@ class MemberAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final content = Column(
       children: <Widget>[
         Container(
           width: 54,
@@ -55,6 +57,15 @@ class MemberAvatar extends StatelessWidget {
           ),
         ),
       ],
+    );
+
+    if (onTap == null) return content;
+
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      onPressed: onTap,
+      child: content,
     );
   }
 }
