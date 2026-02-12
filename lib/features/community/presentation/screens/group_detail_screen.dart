@@ -1,0 +1,116 @@
+import 'package:flutter/cupertino.dart';
+
+import '../../../../app/app_controller.dart';
+import '../../../../core/navigation/discipline_page_route.dart';
+import '../../../../core/theme/discipline_colors.dart';
+import '../../../../core/theme/discipline_text_styles.dart';
+import '../../../../core/widgets/discipline_button.dart';
+import '../../../../core/widgets/discipline_card.dart';
+import '../../../../core/widgets/discipline_scaffold.dart';
+import '../../../profile/presentation/screens/subscription_screen.dart';
+import '../../model/community_models.dart';
+import '../widgets/member_avatar.dart';
+import 'private_chat_screen.dart';
+
+class GroupDetailScreen extends StatelessWidget {
+  const GroupDetailScreen({super.key, required this.group});
+
+  final CommunityGroup group;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = AppScope.of(context);
+
+    return DisciplineScaffold(
+      title: 'Group',
+      child: ListView(
+        padding: const EdgeInsets.only(top: 12, bottom: 18),
+        children: <Widget>[
+          Text(group.name, style: DisciplineTextStyles.title),
+          const SizedBox(height: 10),
+          Text(
+            'Anonymous performance support. Alias only.',
+            style: DisciplineTextStyles.secondary.copyWith(fontSize: 14),
+          ),
+          const SizedBox(height: 18),
+          DisciplineCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text('Members', style: DisciplineTextStyles.caption),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: group.members
+                        .map(
+                          (m) => Padding(
+                            padding: const EdgeInsets.only(right: 14),
+                            child: MemberAvatar(
+                                alias: m.alias, streakDays: m.streakDays),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          DisciplineCard(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text('Weekly change',
+                        style: DisciplineTextStyles.caption),
+                    const SizedBox(height: 8),
+                    Text(
+                      '+${group.weeklyChangePercent}%',
+                      style: DisciplineTextStyles.section.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: DisciplineColors.accent,
+                      ),
+                    ),
+                  ],
+                ),
+                Icon(
+                  CupertinoIcons.chart_bar,
+                  color: DisciplineColors.accent,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          DisciplineButton(
+            label: 'Open Private Chat (Premium)',
+            onPressed: () {
+              if (app.state.isPremium) {
+                Navigator.of(context).push(
+                  DisciplinePageRoute<void>(
+                    builder: (_) => PrivateChatScreen(group: group),
+                  ),
+                );
+                return;
+              }
+              Navigator.of(context).push(
+                DisciplinePageRoute<void>(
+                  builder: (_) => const SubscriptionScreen(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Serious layout. No reactions. No public identity.',
+            style: DisciplineTextStyles.caption.copyWith(
+              color: DisciplineColors.textTertiary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
