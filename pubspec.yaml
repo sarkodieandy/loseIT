@@ -41,6 +41,11 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+dependency_overrides:
+  # record_linux 0.7.x is not compatible with record_platform_interface 1.5.0
+  # and fails compilation even when building for iOS.
+  record_linux: ^1.3.0
+
 flutter:
   uses-material-design: true
   assets:
