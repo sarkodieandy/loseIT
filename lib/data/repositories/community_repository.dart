@@ -9,17 +9,21 @@ class CommunityRepository {
 
   final SupabaseClient _client;
 
-  Stream<List<CommunityPost>> streamFeed() {
-    return _client
-        .from('community_posts')
-        .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
-        .map((rows) => rows
-            .take(100)
-            .map((row) => CommunityPost.fromJson(
-                  Map<String, dynamic>.from(row as Map),
-                ))
-            .toList(growable: false));
+  Stream<List<CommunityPost>> streamFeed({String? category}) {
+    final normalized = category?.trim().toLowerCase();
+    final base = _client.from('community_posts').stream(primaryKey: ['id']);
+    final query = (normalized != null &&
+            normalized.isNotEmpty &&
+            normalized != 'all')
+        ? base.eq('category', normalized)
+        : base;
+
+    return query.order('created_at', ascending: false).map((rows) => rows
+        .take(100)
+        .map((row) => CommunityPost.fromJson(
+              Map<String, dynamic>.from(row as Map),
+            ))
+        .toList(growable: false));
   }
 
   Future<CommunityPost?> fetchPost(String id) async {
@@ -44,6 +48,11 @@ class CommunityRepository {
   Future<CommunityPost> createPost({
     required String content,
     required String anonymousName,
+    String? category,
+    String? topic,
+    String? badge,
+    int? streakDays,
+    String? streakLabel,
   }) async {
     final user = _client.auth.currentUser;
     AppLogger.info('Community createPost userId=${user?.id}');
@@ -60,6 +69,13 @@ class CommunityRepository {
       'alias': anonymousName,
       'content': trimmed,
       'message': trimmed,
+      if (category != null && category.trim().isNotEmpty)
+        'category': category.trim().toLowerCase(),
+      if (topic != null && topic.trim().isNotEmpty) 'topic': topic.trim(),
+      if (badge != null && badge.trim().isNotEmpty) 'badge': badge.trim(),
+      if (streakDays != null) 'streak_days': streakDays,
+      if (streakLabel != null && streakLabel.trim().isNotEmpty)
+        'streak_label': streakLabel.trim(),
     };
     AppLogger.info(
       'Community createPost payload contentLength=${trimmed.length} alias=$anonymousName',
@@ -71,6 +87,25 @@ class CommunityRepository {
       return CommunityPost.fromJson(Map<String, dynamic>.from(row));
     } on PostgrestException catch (error, stackTrace) {
       final message = error.message;
+      if (message.contains('column \"category\"') ||
+          message.contains('column \"topic\"') ||
+          message.contains('column \"badge\"') ||
+          message.contains('column \"streak_days\"') ||
+          message.contains('column \"streak_label\"')) {
+        final fallbackPayload = Map<String, dynamic>.from(payload)
+          ..remove('category')
+          ..remove('topic')
+          ..remove('badge')
+          ..remove('streak_days')
+          ..remove('streak_label');
+        final row = await _client
+            .from('community_posts')
+            .insert(fallbackPayload)
+            .select()
+            .single();
+        AppLogger.info('Community createPost success id=${row['id']} (no extra columns)');
+        return CommunityPost.fromJson(Map<String, dynamic>.from(row));
+      }
       if (message.contains('column \"anonymous_name\"') ||
           message.contains('column \"content\"')) {
         final fallbackPayload = <String, dynamic>{
@@ -216,10 +251,11 @@ class CommunityRepository {
 
   Future<void> likePost(String id, int currentLikes) async {
     try {
+      final parsedId = int.tryParse(id);
       await _client
           .from('community_posts')
           .update(<String, dynamic>{'likes': currentLikes + 1})
-          .eq('id', id);
+          .eq('id', parsedId ?? id);
     } on PostgrestException catch (error, stackTrace) {
       AppLogger.error('community.likePost', error, stackTrace);
       rethrow;
@@ -231,10 +267,11 @@ class CommunityRepository {
 
   Future<void> reactPost(String id, String field, int currentValue) async {
     try {
+      final parsedId = int.tryParse(id);
       await _client
           .from('community_posts')
           .update(<String, dynamic>{field: currentValue + 1})
-          .eq('id', id);
+          .eq('id', parsedId ?? id);
     } on PostgrestException catch (error, stackTrace) {
       AppLogger.error('community.reactPost', error, stackTrace);
       rethrow;

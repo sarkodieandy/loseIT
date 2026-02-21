@@ -5,6 +5,7 @@ class Challenge {
     this.description,
     this.durationDays,
     this.badgeImageUrl,
+    this.memberCount = 0,
     this.isActive = true,
   });
 
@@ -13,6 +14,7 @@ class Challenge {
   final String? description;
   final int? durationDays;
   final String? badgeImageUrl;
+  final int memberCount;
   final bool isActive;
 
   Map<String, dynamic> toJson() {
@@ -22,6 +24,7 @@ class Challenge {
       'description': description,
       'duration_days': durationDays,
       'badge_image_url': badgeImageUrl,
+      'member_count': memberCount,
       'is_active': isActive,
     };
   }
@@ -33,6 +36,7 @@ class Challenge {
       description: json['description'] as String?,
       durationDays: (json['duration_days'] as num?)?.toInt(),
       badgeImageUrl: json['badge_image_url'] as String?,
+      memberCount: (json['member_count'] as num?)?.toInt() ?? 0,
       isActive: (json['is_active'] as bool?) ?? true,
     );
   }

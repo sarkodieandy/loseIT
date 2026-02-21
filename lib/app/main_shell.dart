@@ -37,7 +37,7 @@ class MainShell extends StatelessWidget {
           NavigationDestination(
             icon: Icon(Icons.groups_outlined),
             selectedIcon: Icon(Icons.groups),
-            label: 'Community',
+            label: 'Tribe',
           ),
           NavigationDestination(
             icon: Icon(Icons.analytics_outlined),

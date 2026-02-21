@@ -47,7 +47,13 @@ alter table public.community_posts
 
 alter table public.community_posts
   add column if not exists alias text,
-  add column if not exists message text;
+  add column if not exists message text,
+  add column if not exists category text null,
+  add column if not exists topic text null,
+  add column if not exists badge text null,
+  add column if not exists streak_days integer null,
+  add column if not exists streak_label text null,
+  add column if not exists reply_count integer not null default 0;
 
 update public.community_posts
   set anonymous_name = coalesce(anonymous_name, alias)
@@ -62,6 +68,35 @@ alter table public.community_posts
   alter column content set not null,
   alter column alias drop not null,
   alter column message drop not null;
+
+-- Best-effort backfill for topic/streak on existing rows.
+update public.community_posts p
+set topic = coalesce(
+    p.topic,
+    pr.habit_custom_name,
+    pr.habit_name
+  ),
+  streak_days = coalesce(
+    p.streak_days,
+    greatest(
+      floor(extract(epoch from (p.created_at - pr.sober_start_date)) / 86400)::int + 1,
+      0
+    )
+  ),
+  streak_label = coalesce(
+    p.streak_label,
+    case
+      when p.category = 'relapse' then 'Reset'
+      else
+        'Day ' ||
+        greatest(
+          floor(extract(epoch from (p.created_at - pr.sober_start_date)) / 86400)::int + 1,
+          0
+        )::text
+    end
+  )
+from public.profiles pr
+where pr.id = p.user_id;
 
 do $$
 declare
@@ -116,6 +151,50 @@ alter table public.community_replies
   alter column content set not null,
   alter column alias drop not null,
   alter column message drop not null;
+
+create or replace function public.community_replies_inc_count()
+returns trigger
+language plpgsql
+as $$
+begin
+  update public.community_posts
+    set reply_count = reply_count + 1
+  where id = new.post_id;
+  return new;
+end;
+$$;
+
+create or replace function public.community_replies_dec_count()
+returns trigger
+language plpgsql
+as $$
+begin
+  update public.community_posts
+    set reply_count = greatest(reply_count - 1, 0)
+  where id = old.post_id;
+  return old;
+end;
+$$;
+
+drop trigger if exists trg_community_replies_inc_count on public.community_replies;
+create trigger trg_community_replies_inc_count
+after insert on public.community_replies
+for each row execute function public.community_replies_inc_count();
+
+drop trigger if exists trg_community_replies_dec_count on public.community_replies;
+create trigger trg_community_replies_dec_count
+after delete on public.community_replies
+for each row execute function public.community_replies_dec_count();
+
+-- Backfill reply_count for existing rows.
+update public.community_posts p
+set reply_count = coalesce(r.cnt, 0)
+from (
+  select post_id, count(*)::int as cnt
+  from public.community_replies
+  group by post_id
+) r
+where p.id = r.post_id;
 
 create table if not exists public.dm_threads (
   id uuid primary key default gen_random_uuid(),
@@ -192,6 +271,52 @@ create table if not exists public.user_challenges (
   started_at timestamptz not null default now(),
   completed_at timestamptz null
 );
+
+alter table public.challenges
+  add column if not exists member_count integer not null default 0;
+
+update public.challenges c
+set member_count = coalesce(u.cnt, 0)
+from (
+  select challenge_id, count(*)::int as cnt
+  from public.user_challenges
+  group by challenge_id
+) u
+where c.id = u.challenge_id;
+
+create or replace function public.user_challenges_inc_count()
+returns trigger
+language plpgsql
+as $$
+begin
+  update public.challenges
+    set member_count = member_count + 1
+  where id = new.challenge_id;
+  return new;
+end;
+$$;
+
+create or replace function public.user_challenges_dec_count()
+returns trigger
+language plpgsql
+as $$
+begin
+  update public.challenges
+    set member_count = greatest(member_count - 1, 0)
+  where id = old.challenge_id;
+  return old;
+end;
+$$;
+
+drop trigger if exists trg_user_challenges_inc_count on public.user_challenges;
+create trigger trg_user_challenges_inc_count
+after insert on public.user_challenges
+for each row execute function public.user_challenges_inc_count();
+
+drop trigger if exists trg_user_challenges_dec_count on public.user_challenges;
+create trigger trg_user_challenges_dec_count
+after delete on public.user_challenges
+for each row execute function public.user_challenges_dec_count();
 
 create table if not exists public.badges (
   id uuid primary key default gen_random_uuid(),
@@ -684,6 +809,12 @@ create index if not exists idx_journal_entries_user_date
 
 create index if not exists idx_community_posts_created_at
   on public.community_posts (created_at desc);
+
+create index if not exists idx_community_posts_category_created_at
+  on public.community_posts (category, created_at desc);
+
+create index if not exists idx_community_posts_topic_created_at
+  on public.community_posts (topic, created_at desc);
 
 create index if not exists idx_community_replies_post_date
   on public.community_replies (post_id, created_at asc);

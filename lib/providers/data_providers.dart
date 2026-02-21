@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/models/community_post.dart';
 import '../data/models/community_reply.dart';
@@ -36,9 +39,62 @@ final journalControllerProvider =
   return JournalController(repository);
 });
 
-final communityFeedProvider = StreamProvider<List<CommunityPost>>((ref) {
+final communityFeedProvider =
+    StreamProvider.family<List<CommunityPost>, String?>((ref, category) {
   final repository = ref.watch(communityRepositoryProvider);
-  return repository.streamFeed();
+  return repository.streamFeed(category: category);
+});
+
+final communityOnlineCountProvider = StreamProvider<int>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  final session = client.auth.currentSession;
+  if (session == null) {
+    return Stream<int>.value(0);
+  }
+
+  final channel = client.channel('community:online');
+  final controller = StreamController<int>();
+
+  void emit() {
+    final states = channel.presenceState();
+    final count = states.fold<int>(
+      0,
+      (total, entry) => total + entry.presences.length,
+    );
+    if (!controller.isClosed) {
+      controller.add(count);
+    }
+  }
+
+  channel
+      .onPresenceSync((_) => emit())
+      .onPresenceJoin((_) => emit())
+      .onPresenceLeave((_) => emit())
+      .subscribe((status, [error]) async {
+    if (status == RealtimeSubscribeStatus.subscribed) {
+      await channel.track(
+        <String, dynamic>{
+          'user_id': session.user.id,
+          'online_at': DateTime.now().toIso8601String(),
+        },
+      );
+      emit();
+    }
+  });
+
+  Future<void> cleanup() async {
+    try {
+      await channel.untrack();
+    } catch (_) {}
+    try {
+      await client.removeChannel(channel);
+    } catch (_) {}
+    await controller.close();
+  }
+
+  ref.onDispose(() => unawaited(cleanup()));
+
+  return controller.stream;
 });
 
 final communityPostProvider = FutureProvider.family<CommunityPost?, String>((ref, postId) {
