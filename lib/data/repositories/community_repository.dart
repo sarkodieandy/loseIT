@@ -24,10 +24,11 @@ class CommunityRepository {
 
   Future<CommunityPost?> fetchPost(String id) async {
     try {
+      final parsedId = int.tryParse(id);
       final row = await _client
           .from('community_posts')
           .select()
-          .eq('id', id)
+          .eq('id', parsedId ?? id)
           .maybeSingle();
       if (row == null) return null;
       return CommunityPost.fromJson(Map<String, dynamic>.from(row));
@@ -81,10 +82,11 @@ class CommunityRepository {
   }
 
   Stream<List<CommunityReply>> streamReplies(String postId) {
+    final parsedPostId = int.tryParse(postId);
     return _client
         .from('community_replies')
         .stream(primaryKey: ['id'])
-        .eq('post_id', postId)
+        .eq('post_id', parsedPostId ?? postId)
         .order('created_at')
         .map((rows) => rows
             .map((row) => CommunityReply.fromJson(

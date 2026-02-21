@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/anonymous_name.dart';
 import '../../../core/utils/formatters.dart';
@@ -34,6 +35,15 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please sign in to reply.')),
       );
+      return;
+    }
+    final profile = ref.read(profileControllerProvider).asData?.value;
+    if (profile == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Complete onboarding before replying.')),
+      );
+      context.go('/onboarding');
       return;
     }
 
