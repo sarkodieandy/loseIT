@@ -153,4 +153,19 @@ class CommunityRepository {
       rethrow;
     }
   }
+
+  Future<void> reactPost(String id, String field, int currentValue) async {
+    try {
+      await _client
+          .from('community_posts')
+          .update(<String, dynamic>{field: currentValue + 1})
+          .eq('id', id);
+    } on PostgrestException catch (error, stackTrace) {
+      AppLogger.error('community.reactPost', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('community.reactPost', error, stackTrace);
+      rethrow;
+    }
+  }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
@@ -31,16 +32,23 @@ class PrimaryButton extends StatelessWidget {
       ),
     );
 
+    final handler = (isLoading || onPressed == null)
+        ? null
+        : () {
+            HapticFeedback.selectionClick();
+            onPressed?.call();
+          };
+
     if (icon == null) {
       return ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
+        onPressed: handler,
         style: style,
         child: child,
       );
     }
 
     return ElevatedButton.icon(
-      onPressed: isLoading ? null : onPressed,
+      onPressed: handler,
       icon: Icon(icon),
       label: child,
       style: style,
@@ -69,16 +77,23 @@ class SecondaryButton extends StatelessWidget {
       ),
     );
 
+    final handler = onPressed == null
+        ? null
+        : () {
+            HapticFeedback.selectionClick();
+            onPressed?.call();
+          };
+
     if (icon == null) {
       return OutlinedButton(
-        onPressed: onPressed,
+        onPressed: handler,
         style: style,
         child: Text(label),
       );
     }
 
     return OutlinedButton.icon(
-      onPressed: onPressed,
+      onPressed: handler,
       icon: Icon(icon),
       label: Text(label),
       style: style,

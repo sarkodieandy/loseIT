@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../../../core/widgets/premium_gate.dart';
 import '../../../core/widgets/section_card.dart';
+import '../../../data/services/health_service.dart';
 import '../../../providers/app_providers.dart';
 
 class AnalyticsScreen extends ConsumerWidget {
@@ -114,7 +115,20 @@ class AnalyticsScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton(
-                        onPressed: isPremium ? () {} : null,
+                        onPressed: isPremium
+                            ? () async {
+                                final granted =
+                                    await HealthService.instance.requestAuthorization();
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(granted
+                                        ? 'Apple Health connected.'
+                                        : 'Health permissions denied.'),
+                                  ),
+                                );
+                              }
+                            : null,
                         child: const Text('Connect Apple Health'),
                       ),
                     ],

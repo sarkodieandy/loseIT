@@ -40,6 +40,8 @@ class JournalRepository {
     String? habitId,
     String? mood,
     String? photoUrl,
+    String? audioUrl,
+    String? transcript,
   }) async {
     final user = _client.auth.currentUser;
     if (user == null) throw const AuthException('Not authenticated');
@@ -51,6 +53,8 @@ class JournalRepository {
       'habit_id': habitId,
       'mood': mood,
       'photo_url': photoUrl,
+      'audio_url': audioUrl,
+      'transcript': transcript,
     };
 
     final row = await _client.from('journal_entries').insert(payload).select().single();
@@ -74,6 +78,27 @@ class JournalRepository {
 
   Future<String> uploadPhoto(File file, {required String userId}) async {
     final bucket = 'journal-photos';
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}';
+    final path = '$userId/$fileName';
+    AppLogger.info(
+      'Storage upload start bucket=$bucket path=$path size=${file.lengthSync()}',
+    );
+    try {
+      await _client.storage.from(bucket).upload(path, file);
+      final url = _client.storage.from(bucket).getPublicUrl(path);
+      AppLogger.info('Storage upload success bucket=$bucket path=$path');
+      return url;
+    } on StorageException catch (error, stackTrace) {
+      AppLogger.error('storage.upload.$bucket', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('storage.upload.$bucket', error, stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<String> uploadAudio(File file, {required String userId}) async {
+    final bucket = 'journal-audio';
     final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}';
     final path = '$userId/$fileName';
     AppLogger.info(

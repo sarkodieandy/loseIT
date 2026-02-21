@@ -35,7 +35,12 @@ class HabitsRepository {
 
   Future<UserHabit> createHabit(UserHabit habit) async {
     try {
-      final row = await _client.from('user_habits').insert(habit.toJson()).select().single();
+      final payload = Map<String, dynamic>.from(habit.toJson());
+      if (payload['id'] == null || (payload['id'] as String).isEmpty) {
+        payload.remove('id');
+      }
+      final row =
+          await _client.from('user_habits').insert(payload).select().single();
       return UserHabit.fromJson(Map<String, dynamic>.from(row));
     } on PostgrestException catch (error, stackTrace) {
       AppLogger.error('habits.create', error, stackTrace);

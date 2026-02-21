@@ -71,6 +71,34 @@ class CommunityScreen extends ConsumerWidget {
                         ),
                         Text('${post.likes}'),
                         const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: () async {
+                            await ref
+                                .read(communityRepositoryProvider)
+                                .reactPost(
+                                  post.id,
+                                  'reaction_strength',
+                                  post.reactionStrength,
+                                );
+                          },
+                          icon: const Text('💪'),
+                        ),
+                        Text('${post.reactionStrength}'),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: () async {
+                            await ref
+                                .read(communityRepositoryProvider)
+                                .reactPost(
+                                  post.id,
+                                  'reaction_celebrate',
+                                  post.reactionCelebrate,
+                                );
+                          },
+                          icon: const Text('🙌'),
+                        ),
+                        Text('${post.reactionCelebrate}'),
+                        const SizedBox(width: 8),
                         TextButton.icon(
                           onPressed: () => context.push('/community/${post.id}'),
                           icon: const Icon(Icons.chat_bubble_outline, size: 18),

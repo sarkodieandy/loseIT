@@ -7,6 +7,8 @@ class JournalEntry {
     this.habitId,
     this.mood,
     this.photoUrl,
+    this.audioUrl,
+    this.transcript,
     this.createdAt,
   });
 
@@ -17,6 +19,8 @@ class JournalEntry {
   final String? habitId;
   final String? mood;
   final String? photoUrl;
+  final String? audioUrl;
+  final String? transcript;
   final DateTime? createdAt;
 
   String get preview {
@@ -34,6 +38,8 @@ class JournalEntry {
       'habit_id': habitId,
       'mood': mood,
       'photo_url': photoUrl,
+      'audio_url': audioUrl,
+      'transcript': transcript,
       'created_at': createdAt?.toIso8601String(),
     };
   }
@@ -55,6 +61,8 @@ class JournalEntry {
       habitId: json['habit_id']?.toString(),
       mood: json['mood'] as String?,
       photoUrl: json['photo_url'] as String?,
+      audioUrl: json['audio_url'] as String?,
+      transcript: json['transcript'] as String?,
       createdAt: json['created_at'] == null ? null : parseDate(json['created_at']),
     );
   }

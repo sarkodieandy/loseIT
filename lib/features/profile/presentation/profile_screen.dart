@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/section_card.dart';
@@ -16,6 +20,7 @@ class ProfileScreen extends ConsumerWidget {
     final profileAsync = ref.watch(profileControllerProvider);
     final settings = ref.watch(settingsControllerProvider);
     final isPremium = ref.watch(premiumControllerProvider);
+    final badgesAsync = ref.watch(userBadgesProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
@@ -61,6 +66,21 @@ class ProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           SectionCard(
+            child: badgesAsync.when(
+              data: (badges) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text('Badges', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  Text('Earned: ${badges.length}'),
+                ],
+              ),
+              loading: () => const Text('Loading badges…'),
+              error: (error, _) => Text('Badges failed: $error'),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SectionCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
@@ -100,6 +120,26 @@ class ProfileScreen extends ConsumerWidget {
                 Text('Account', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 12),
                 OutlinedButton(
+                  onPressed: () => context.push('/habits'),
+                  child: const Text('Manage habits'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => context.push('/support'),
+                  child: const Text('Support network'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => context.push('/milestones'),
+                  child: const Text('Custom milestones'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => _exportData(context, ref),
+                  child: const Text('Export data'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
                   onPressed: () async {
                     await ref.read(authRepositoryProvider).signOut();
                     await ref.read(settingsControllerProvider.notifier).setOnboardingComplete(false);
@@ -131,5 +171,21 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+Future<void> _exportData(BuildContext context, WidgetRef ref) async {
+  final entries = ref.read(journalControllerProvider).value ?? const [];
+  final buffer = StringBuffer();
+  buffer.writeln('date,content,mood');
+  for (final entry in entries) {
+    final content = entry.content.replaceAll(',', ' ');
+    buffer.writeln('${entry.entryDate.toIso8601String()},$content,${entry.mood ?? ''}');
+  }
+  final dir = await getTemporaryDirectory();
+  final file = File('${dir.path}/be_sober_export.csv');
+  await file.writeAsString(buffer.toString());
+  if (context.mounted) {
+    await Share.shareXFiles([XFile(file.path)], text: 'Be Sober export');
   }
 }

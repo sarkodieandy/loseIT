@@ -26,14 +26,24 @@ create table if not exists public.journal_entries (
 alter table public.journal_entries
   add column if not exists habit_id uuid null references public.user_habits (id) on delete set null;
 
+alter table public.journal_entries
+  add column if not exists audio_url text null,
+  add column if not exists transcript text null;
+
 create table if not exists public.community_posts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
   anonymous_name text not null,
   content text not null,
   likes integer not null default 0,
+  reaction_strength integer not null default 0,
+  reaction_celebrate integer not null default 0,
   created_at timestamptz not null default now()
 );
+
+alter table public.community_posts
+  add column if not exists reaction_strength integer not null default 0,
+  add column if not exists reaction_celebrate integer not null default 0;
 
 do $$
 declare

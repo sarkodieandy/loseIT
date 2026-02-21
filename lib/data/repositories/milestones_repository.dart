@@ -30,9 +30,16 @@ class MilestonesRepository {
   }
 
   Future<CustomMilestone> createMilestone(CustomMilestone milestone) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw const AuthException('Not authenticated');
+    final payload = Map<String, dynamic>.from(milestone.toJson());
+    payload['user_id'] = user.id;
+    if ((payload['id'] as String?)?.isEmpty ?? true) {
+      payload.remove('id');
+    }
     final row = await _client
         .from('custom_milestones')
-        .insert(milestone.toJson())
+        .insert(payload)
         .select()
         .single();
     return CustomMilestone.fromJson(Map<String, dynamic>.from(row));

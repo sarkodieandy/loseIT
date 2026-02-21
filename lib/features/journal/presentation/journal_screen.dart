@@ -5,7 +5,10 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/section_card.dart';
+import '../../../data/models/user_habit.dart';
+import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
+import '../../../providers/habit_selection_provider.dart';
 
 class JournalScreen extends ConsumerWidget {
   const JournalScreen({super.key});
@@ -13,9 +16,43 @@ class JournalScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final entriesAsync = ref.watch(journalControllerProvider);
+    final habitsAsync = ref.watch(habitsProvider);
+    final selectedHabitId = ref.watch(selectedHabitIdProvider);
+    final isPremium = ref.watch(premiumControllerProvider);
+    final promptsAsync = ref.watch(promptsProvider(isPremium));
+
+    final habits = habitsAsync.maybeWhen(
+      data: (items) => items,
+      orElse: () => const <UserHabit>[],
+    );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Journal')),
+      appBar: AppBar(
+        title: const Text('Journal'),
+        actions: habits.isEmpty
+            ? null
+            : <Widget>[
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: selectedHabitId ?? habits.first.id,
+                    items: habits
+                        .map(
+                          (habit) => DropdownMenuItem<String>(
+                            value: habit.id,
+                            child: Text(habit.displayName),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        ref.read(selectedHabitIdProvider.notifier).state = value;
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+      ),
       floatingActionButton: FloatingActionButton(
         heroTag: 'journal_fab',
         onPressed: () => context.push('/journal/new'),
@@ -23,13 +60,45 @@ class JournalScreen extends ConsumerWidget {
       ),
       body: entriesAsync.when(
         data: (entries) {
-          if (entries.isEmpty) {
-            return const Center(child: Text('No entries yet.'));
-          }
+          final filtered = selectedHabitId == null
+              ? entries
+              : entries
+                  .where((entry) => entry.habitId == selectedHabitId)
+                  .toList(growable: false);
           return ListView.separated(
             padding: const EdgeInsets.all(20),
             itemBuilder: (context, index) {
-              final entry = entries[index];
+              if (index == 0) {
+                return SectionCard(
+                  child: promptsAsync.when(
+                    data: (prompts) {
+                      final prompt = prompts.isEmpty
+                          ? null
+                          : prompts[DateTime.now().day % prompts.length];
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Prompt of the day',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            prompt?.promptText ??
+                                'What is one thing you are grateful for today?',
+                          ),
+                        ],
+                      );
+                    },
+                    loading: () => const Text('Loading prompt…'),
+                    error: (error, _) => Text('Failed: $error'),
+                  ),
+                );
+              }
+              if (filtered.isEmpty) {
+                return const SectionCard(child: Text('No entries yet.'));
+              }
+              final entry = filtered[index - 1];
               return GestureDetector(
                 onTap: () => context.push('/journal/${entry.id}'),
                 child: SectionCard(
@@ -73,7 +142,7 @@ class JournalScreen extends ConsumerWidget {
               );
             },
             separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemCount: entries.length,
+            itemCount: filtered.isEmpty ? 1 : filtered.length + 1,
           );
         },
         loading: () => const _JournalLoading(),

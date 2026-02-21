@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/utils/app_logger.dart';
 import '../data/services/revenuecat_service.dart';
+import '../data/services/notification_service.dart';
 import '../data/services/local_cache_service.dart';
 
 class AppBootstrap {
@@ -34,6 +35,8 @@ class AppBootstrap {
 
     final revenueCatKey = dotenv.env['REVENUECAT_API_KEY'] ?? '';
     await RevenueCatService.instance.initialize(revenueCatKey);
+
+    await NotificationService.instance.initialize();
 
     Supabase.instance.client.auth.onAuthStateChange.listen((event) {
       final session = event.session;

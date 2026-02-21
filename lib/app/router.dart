@@ -7,9 +7,15 @@ import '../features/analytics/presentation/analytics_screen.dart';
 import '../features/community/presentation/community_screen.dart';
 import '../features/community/presentation/community_thread_screen.dart';
 import '../features/community/presentation/create_post_screen.dart';
+import '../features/challenges/presentation/challenges_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/dm/presentation/dm_chat_screen.dart';
 import '../features/dm/presentation/dm_inbox_screen.dart';
+import '../features/habits/presentation/habits_screen.dart';
+import '../features/support/presentation/support_chat_screen.dart';
+import '../features/support/presentation/support_screen.dart';
+import '../features/focus/presentation/focus_screen.dart';
+import '../features/milestones/presentation/milestones_screen.dart';
 import '../features/journal/presentation/journal_editor_screen.dart';
 import '../features/journal/presentation/journal_entry_screen.dart';
 import '../features/journal/presentation/journal_screen.dart';
@@ -171,6 +177,39 @@ final routerProvider = Provider<GoRouter>((ref) {
             otherAlias: extra is String ? extra : null,
           );
         },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/habits',
+        builder: (context, state) => const HabitsScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/challenges',
+        builder: (context, state) => const ChallengesScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/support',
+        builder: (context, state) => const SupportScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/support/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return SupportChatScreen(connectionId: id);
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/focus',
+        builder: (context, state) => const FocusScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/milestones',
+        builder: (context, state) => const MilestonesScreen(),
       ),
     ],
   );

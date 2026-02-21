@@ -5,6 +5,8 @@ class CommunityPost {
     required this.anonymousName,
     required this.content,
     required this.likes,
+    required this.reactionStrength,
+    required this.reactionCelebrate,
     required this.createdAt,
   });
 
@@ -13,6 +15,8 @@ class CommunityPost {
   final String anonymousName;
   final String content;
   final int likes;
+  final int reactionStrength;
+  final int reactionCelebrate;
   final DateTime createdAt;
 
   Map<String, dynamic> toJson() {
@@ -22,6 +26,8 @@ class CommunityPost {
       'anonymous_name': anonymousName,
       'content': content,
       'likes': likes,
+      'reaction_strength': reactionStrength,
+      'reaction_celebrate': reactionCelebrate,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -42,6 +48,8 @@ class CommunityPost {
           (json['anonymous_name'] as String?) ?? (json['alias'] as String?) ?? 'SoberFriend',
       content: (json['content'] as String?) ?? (json['message'] as String?) ?? '',
       likes: (json['likes'] as num?)?.toInt() ?? 0,
+      reactionStrength: (json['reaction_strength'] as num?)?.toInt() ?? 0,
+      reactionCelebrate: (json['reaction_celebrate'] as num?)?.toInt() ?? 0,
       createdAt: parseDate(json['created_at']),
     );
   }

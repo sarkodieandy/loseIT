@@ -1,3 +1,4 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,7 +7,7 @@ import '../../../data/models/journal_entry.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
 
-class JournalEntryScreen extends ConsumerWidget {
+class JournalEntryScreen extends ConsumerStatefulWidget {
   const JournalEntryScreen({
     super.key,
     required this.entryId,
@@ -15,7 +16,34 @@ class JournalEntryScreen extends ConsumerWidget {
   final String entryId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<JournalEntryScreen> createState() => _JournalEntryScreenState();
+}
+
+class _JournalEntryScreenState extends ConsumerState<JournalEntryScreen> {
+  final AudioPlayer _player = AudioPlayer();
+  bool _playing = false;
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  Future<void> _togglePlayback(String url) async {
+    if (_playing) {
+      await _player.stop();
+      setState(() => _playing = false);
+      return;
+    }
+    await _player.play(UrlSource(url));
+    setState(() => _playing = true);
+    _player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _playing = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final entriesAsync = ref.watch(journalControllerProvider);
 
     return Scaffold(
@@ -24,7 +52,7 @@ class JournalEntryScreen extends ConsumerWidget {
         data: (entries) {
           JournalEntry? entry;
           for (final item in entries) {
-            if (item.id == entryId) {
+            if (item.id == widget.entryId) {
               entry = item;
               break;
             }
@@ -57,6 +85,23 @@ class JournalEntryScreen extends ConsumerWidget {
               if (resolved.mood != null) ...[
                 const SizedBox(height: 12),
                 Text('Mood: ${resolved.mood}'),
+              ],
+              if (resolved.transcript != null && resolved.transcript!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Transcription',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 6),
+                Text(resolved.transcript!),
+              ],
+              if (resolved.audioUrl != null) ...[
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () => _togglePlayback(resolved.audioUrl!),
+                  icon: Icon(_playing ? Icons.stop : Icons.play_arrow),
+                  label: Text(_playing ? 'Stop Audio' : 'Play Audio'),
+                ),
               ],
               const SizedBox(height: 20),
               OutlinedButton.icon(
