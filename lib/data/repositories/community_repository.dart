@@ -49,19 +49,56 @@ class CommunityRepository {
     AppLogger.info('Community createPost userId=${user?.id}');
     if (user == null) throw const AuthException('Not authenticated');
 
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) {
+      throw Exception('Post content is empty.');
+    }
+
     final payload = <String, dynamic>{
       'user_id': user.id,
       'anonymous_name': anonymousName,
       'alias': anonymousName,
-      'content': content,
-      'message': content,
+      'content': trimmed,
+      'message': trimmed,
     };
+    AppLogger.info(
+      'Community createPost payload contentLength=${trimmed.length} alias=$anonymousName',
+    );
 
     try {
       final row = await _client.from('community_posts').insert(payload).select().single();
       AppLogger.info('Community createPost success id=${row['id']}');
       return CommunityPost.fromJson(Map<String, dynamic>.from(row));
     } on PostgrestException catch (error, stackTrace) {
+      final message = error.message;
+      if (message.contains('column \"anonymous_name\"') ||
+          message.contains('column \"content\"')) {
+        final fallbackPayload = <String, dynamic>{
+          'user_id': user.id,
+          'alias': anonymousName,
+          'message': trimmed,
+        };
+        final row = await _client
+            .from('community_posts')
+            .insert(fallbackPayload)
+            .select()
+            .single();
+        AppLogger.info('Community createPost success id=${row['id']} (legacy columns)');
+        return CommunityPost.fromJson(Map<String, dynamic>.from(row));
+      }
+      if (message.contains('null value in column \"message\"') ||
+          message.contains('null value in column \"alias\"')) {
+        final fallbackPayload = Map<String, dynamic>.from(payload)
+          ..['alias'] = anonymousName
+          ..['message'] = trimmed;
+        final row = await _client
+            .from('community_posts')
+            .insert(fallbackPayload)
+            .select()
+            .single();
+        AppLogger.info('Community createPost success id=${row['id']} (retry)');
+        return CommunityPost.fromJson(Map<String, dynamic>.from(row));
+      }
       if (error.message.contains('column \"alias\"') ||
           error.message.contains('column \"alias\" of relation')) {
         final fallbackPayload = Map<String, dynamic>.from(payload)..remove('alias');
@@ -104,15 +141,23 @@ class CommunityRepository {
     AppLogger.info('Community createReply userId=${user?.id} postId=$postId');
     if (user == null) throw const AuthException('Not authenticated');
 
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) {
+      throw Exception('Reply content is empty.');
+    }
+
     final parsedPostId = int.tryParse(postId);
     final payload = <String, dynamic>{
       'post_id': parsedPostId ?? postId,
       'user_id': user.id,
       'anonymous_name': anonymousName,
       'alias': anonymousName,
-      'content': content,
-      'message': content,
+      'content': trimmed,
+      'message': trimmed,
     };
+    AppLogger.info(
+      'Community createReply payload contentLength=${trimmed.length} alias=$anonymousName',
+    );
 
     try {
       final row =
@@ -120,6 +165,36 @@ class CommunityRepository {
       AppLogger.info('Community createReply success id=${row['id']}');
       return CommunityReply.fromJson(Map<String, dynamic>.from(row));
     } on PostgrestException catch (error, stackTrace) {
+      final message = error.message;
+      if (message.contains('column \"anonymous_name\"') ||
+          message.contains('column \"content\"')) {
+        final fallbackPayload = <String, dynamic>{
+          'post_id': parsedPostId ?? postId,
+          'user_id': user.id,
+          'alias': anonymousName,
+          'message': trimmed,
+        };
+        final row = await _client
+            .from('community_replies')
+            .insert(fallbackPayload)
+            .select()
+            .single();
+        AppLogger.info('Community createReply success id=${row['id']} (legacy columns)');
+        return CommunityReply.fromJson(Map<String, dynamic>.from(row));
+      }
+      if (message.contains('null value in column \"message\"') ||
+          message.contains('null value in column \"alias\"')) {
+        final fallbackPayload = Map<String, dynamic>.from(payload)
+          ..['alias'] = anonymousName
+          ..['message'] = trimmed;
+        final row = await _client
+            .from('community_replies')
+            .insert(fallbackPayload)
+            .select()
+            .single();
+        AppLogger.info('Community createReply success id=${row['id']} (retry)');
+        return CommunityReply.fromJson(Map<String, dynamic>.from(row));
+      }
       if (error.message.contains('column \"alias\"') ||
           error.message.contains('column \"alias\" of relation')) {
         final fallbackPayload = Map<String, dynamic>.from(payload)..remove('alias');

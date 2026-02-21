@@ -35,14 +35,6 @@ class AuthRepository {
     return user;
   }
 
-  Future<void> signInWithApple() async {
-    await _client.auth.signInWithOAuth(OAuthProvider.apple);
-  }
-
-  Future<void> signInWithGoogle() async {
-    await _client.auth.signInWithOAuth(OAuthProvider.google);
-  }
-
   Future<void> signOut() async {
     await _client.auth.signOut();
   }

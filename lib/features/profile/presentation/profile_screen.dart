@@ -19,7 +19,6 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(profileControllerProvider);
     final settings = ref.watch(settingsControllerProvider);
-    final isPremium = ref.watch(premiumControllerProvider);
     final badgesAsync = ref.watch(userBadgesProvider);
 
     return Scaffold(
@@ -145,25 +144,6 @@ class ProfileScreen extends ConsumerWidget {
                     await ref.read(settingsControllerProvider.notifier).setOnboardingComplete(false);
                   },
                   child: const Text('Log out'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          SectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text('Premium', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                Text(
-                  isPremium ? 'You are Premium.' : 'Unlock advanced features.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: () => context.push('/premium'),
-                  child: Text(isPremium ? 'Manage subscription' : 'Go Premium'),
                 ),
               ],
             ),

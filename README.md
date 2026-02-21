@@ -9,9 +9,9 @@ A sobriety tracker with journaling, milestones, and an anonymous community feed.
 - Voice journal + transcription (iOS)
 - Anonymous community feed (Realtime)
 - Community replies + DMs
-- Analytics (premium)
-- Challenges + custom milestones (premium)
-- Support network (premium)
+- Analytics
+- Challenges + custom milestones
+- Support network
 - Offline cache for profile + journal
 
 ## Tech Stack
@@ -28,7 +28,6 @@ Copy `.env.example` → `.env` and fill in values:
 ```
 SUPABASE_URL=...
 SUPABASE_ANON_KEY=...
-REVENUECAT_API_KEY=...
 ```
 
 ### 2) Supabase schema + RLS
@@ -56,9 +55,9 @@ flutter run
 
 ## Notes
 - Anonymous sign-in is the default in onboarding.
-- Email and Apple sign-in are available in onboarding.
+- Email sign-in is available in onboarding.
 - Info.plist includes camera + photo library + microphone + speech + health permissions.
-- If you don’t use RevenueCat yet, premium stays locked until configured.
+- All features are free for now (no RevenueCat integration).
 
 ## Optional
 - Local notifications for milestone reminders (not enabled by default).

@@ -45,6 +45,24 @@ alter table public.community_posts
   add column if not exists reaction_strength integer not null default 0,
   add column if not exists reaction_celebrate integer not null default 0;
 
+alter table public.community_posts
+  add column if not exists alias text,
+  add column if not exists message text;
+
+update public.community_posts
+  set anonymous_name = coalesce(anonymous_name, alias)
+  where anonymous_name is null;
+
+update public.community_posts
+  set content = coalesce(content, message)
+  where content is null;
+
+alter table public.community_posts
+  alter column anonymous_name set not null,
+  alter column content set not null,
+  alter column alias drop not null,
+  alter column message drop not null;
+
 do $$
 declare
   post_id_type text;
@@ -56,18 +74,7 @@ begin
     and table_name = 'community_posts'
     and column_name = 'id';
 
-  if post_id_type is null or post_id_type = 'uuid' then
-    execute $sql$
-      create table if not exists public.community_replies (
-        id uuid primary key default gen_random_uuid(),
-        post_id uuid not null references public.community_posts (id) on delete cascade,
-        user_id uuid not null references public.profiles (id) on delete cascade,
-        anonymous_name text not null,
-        content text not null,
-        created_at timestamptz not null default now()
-      );
-    $sql$;
-  else
+  if post_id_type = 'bigint' then
     execute $sql$
       create table if not exists public.community_replies (
         id uuid primary key default gen_random_uuid(),
@@ -78,8 +85,37 @@ begin
         created_at timestamptz not null default now()
       );
     $sql$;
+  else
+    execute $sql$
+      create table if not exists public.community_replies (
+        id uuid primary key default gen_random_uuid(),
+        post_id uuid not null references public.community_posts (id) on delete cascade,
+        user_id uuid not null references public.profiles (id) on delete cascade,
+        anonymous_name text not null,
+        content text not null,
+        created_at timestamptz not null default now()
+      );
+    $sql$;
   end if;
 end $$;
+
+alter table public.community_replies
+  add column if not exists alias text,
+  add column if not exists message text;
+
+update public.community_replies
+  set anonymous_name = coalesce(anonymous_name, alias)
+  where anonymous_name is null;
+
+update public.community_replies
+  set content = coalesce(content, message)
+  where content is null;
+
+alter table public.community_replies
+  alter column anonymous_name set not null,
+  alter column content set not null,
+  alter column alias drop not null,
+  alter column message drop not null;
 
 create table if not exists public.dm_threads (
   id uuid primary key default gen_random_uuid(),

@@ -787,49 +787,46 @@ class _MotivationStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return ListView(
       padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            'Your motivation',
-            style: Theme.of(context).textTheme.headlineSmall,
+      children: <Widget>[
+        Text(
+          'Your motivation',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          maxLines: 4,
+          decoration: const InputDecoration(
+            hintText: 'Write a note to your future self…',
+            border: OutlineInputBorder(),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            maxLines: 4,
-            decoration: const InputDecoration(
-              hintText: 'Write a note to your future self…',
-              border: OutlineInputBorder(),
+          onChanged: onChanged,
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: <Widget>[
+            OutlinedButton.icon(
+              onPressed: onPickPhoto,
+              icon: const Icon(Icons.photo),
+              label: const Text('Add photo'),
             ),
-            onChanged: onChanged,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: <Widget>[
-              OutlinedButton.icon(
-                onPressed: onPickPhoto,
-                icon: const Icon(Icons.photo),
-                label: const Text('Add photo'),
-              ),
-              const SizedBox(width: 12),
-              if (photo != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(
-                    photo!,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                  ),
+            const SizedBox(width: 12),
+            if (photo != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(
+                  photo!,
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
                 ),
-            ],
-          ),
-          const Spacer(),
-          PrimaryButton(label: 'Continue', onPressed: onNext),
-        ],
-      ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        PrimaryButton(label: 'Continue', onPressed: onNext),
+      ],
     );
   }
 }

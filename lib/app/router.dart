@@ -22,7 +22,6 @@ import '../features/journal/presentation/journal_screen.dart';
 import '../features/onboarding/presentation/onboarding_flow.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/relapse/presentation/relapse_screen.dart';
-import '../features/premium/presentation/paywall_screen.dart';
 import '../providers/app_providers.dart';
 import '../providers/data_providers.dart';
 import 'main_shell.dart';
@@ -143,11 +142,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         path: '/relapse',
         builder: (context, state) => const RelapseScreen(),
-      ),
-      GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
-        path: '/premium',
-        builder: (context, state) => const PaywallScreen(),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
