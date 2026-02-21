@@ -118,10 +118,21 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
       String? photoUrl;
       if (_motivationPhoto != null) {
-        photoUrl = await profileRepo.uploadMotivationPhoto(
-          _motivationPhoto!,
-          userId: user.id,
-        );
+        try {
+          photoUrl = await profileRepo.uploadMotivationPhoto(
+            _motivationPhoto!,
+            userId: user.id,
+          );
+        } catch (error, stackTrace) {
+          AppLogger.error('onboarding.photoUpload', error, stackTrace);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Photo upload failed. Continuing without it.'),
+              ),
+            );
+          }
+        }
       }
 
       final profile = UserProfile(
