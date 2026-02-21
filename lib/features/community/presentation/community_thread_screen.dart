@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/anonymous_name.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
@@ -146,31 +145,46 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
               error: (error, _) => Center(child: Text('Failed: $error')),
             ),
           ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + media.viewInsets.bottom),
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendReply(),
-                    decoration: const InputDecoration(
-                      hintText: 'Write a reply…',
-                      border: OutlineInputBorder(),
-                    ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.fromLTRB(
+            16,
+            8,
+            16,
+            8 + media.viewInsets.bottom,
+          ),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _sendReply(),
+                  decoration: const InputDecoration(
+                    hintText: 'Write a reply…',
+                    border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(width: 12),
-                PrimaryButton(
-                  label: 'Send',
-                  onPressed: _sending ? null : _sendReply,
-                  isLoading: _sending,
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              IconButton.filled(
+                onPressed: _sending ? null : _sendReply,
+                icon: _sending
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

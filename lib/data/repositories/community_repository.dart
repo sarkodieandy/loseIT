@@ -51,7 +51,9 @@ class CommunityRepository {
     final payload = <String, dynamic>{
       'user_id': user.id,
       'anonymous_name': anonymousName,
+      'alias': anonymousName,
       'content': content,
+      'message': content,
     };
 
     try {
@@ -59,6 +61,17 @@ class CommunityRepository {
       AppLogger.info('Community createPost success id=${row['id']}');
       return CommunityPost.fromJson(Map<String, dynamic>.from(row));
     } on PostgrestException catch (error, stackTrace) {
+      if (error.message.contains('column \"alias\"') ||
+          error.message.contains('column \"alias\" of relation')) {
+        final fallbackPayload = Map<String, dynamic>.from(payload)..remove('alias');
+        final row = await _client
+            .from('community_posts')
+            .insert(fallbackPayload)
+            .select()
+            .single();
+        AppLogger.info('Community createPost success id=${row['id']} (fallback)');
+        return CommunityPost.fromJson(Map<String, dynamic>.from(row));
+      }
       AppLogger.error('community.createPost', error, stackTrace);
       rethrow;
     } catch (error, stackTrace) {
@@ -89,11 +102,14 @@ class CommunityRepository {
     AppLogger.info('Community createReply userId=${user?.id} postId=$postId');
     if (user == null) throw const AuthException('Not authenticated');
 
+    final parsedPostId = int.tryParse(postId);
     final payload = <String, dynamic>{
-      'post_id': postId,
+      'post_id': parsedPostId ?? postId,
       'user_id': user.id,
       'anonymous_name': anonymousName,
+      'alias': anonymousName,
       'content': content,
+      'message': content,
     };
 
     try {
@@ -102,6 +118,17 @@ class CommunityRepository {
       AppLogger.info('Community createReply success id=${row['id']}');
       return CommunityReply.fromJson(Map<String, dynamic>.from(row));
     } on PostgrestException catch (error, stackTrace) {
+      if (error.message.contains('column \"alias\"') ||
+          error.message.contains('column \"alias\" of relation')) {
+        final fallbackPayload = Map<String, dynamic>.from(payload)..remove('alias');
+        final row = await _client
+            .from('community_replies')
+            .insert(fallbackPayload)
+            .select()
+            .single();
+        AppLogger.info('Community createReply success id=${row['id']} (fallback)');
+        return CommunityReply.fromJson(Map<String, dynamic>.from(row));
+      }
       AppLogger.error('community.createReply', error, stackTrace);
       rethrow;
     } catch (error, stackTrace) {

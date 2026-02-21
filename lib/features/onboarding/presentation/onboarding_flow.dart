@@ -850,110 +850,94 @@ class _FinishStep extends ConsumerWidget {
     final authRepo = ref.read(authRepositoryProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + padding.bottom),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: IntrinsicHeight(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'You’re all set.',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Choose how you want to start. You can always change this later.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      gradient: LinearGradient(
-                        colors: <Color>[
-                          colorScheme.primary.withValues(alpha: 0.14),
-                          colorScheme.secondary.withValues(alpha: 0.12),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(
-                        color: colorScheme.primary.withValues(alpha: 0.25),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          'What you’ll get',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                        const SizedBox(height: 12),
-                        const _FinishBenefit(
-                          icon: Icons.timer_outlined,
-                          label: 'Live sober timer and milestones',
-                        ),
-                        const SizedBox(height: 8),
-                        const _FinishBenefit(
-                          icon: Icons.book_outlined,
-                          label: 'Private journal with photo memories',
-                        ),
-                        const SizedBox(height: 8),
-                        const _FinishBenefit(
-                          icon: Icons.people_outline,
-                          label: 'Anonymous community support',
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-                  PrimaryButton(
-                    label: 'Continue anonymously',
-                    onPressed: submitting ? null : onSubmit,
-                    isLoading: submitting,
-                  ),
-                  const SizedBox(height: 12),
-                  SecondaryButton(
-                    label: 'Use email instead',
-                    onPressed: submitting
-                        ? null
-                        : () async {
-                            final result = await showDialog<bool>(
-                              context: context,
-                              builder: (context) =>
-                                  _EmailAuthDialog(authRepo: authRepo),
-                            );
-                            if (result == true) {
-                              onSubmit();
-                            }
-                          },
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Anonymous mode keeps you private. You can link an email anytime.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                ],
+    return ListView(
+      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + padding.bottom),
+      children: <Widget>[
+        Text(
+          'You’re all set.',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
               ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Choose how you want to start. You can always change this later.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 20),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              colors: <Color>[
+                colorScheme.primary.withValues(alpha: 0.14),
+                colorScheme.secondary.withValues(alpha: 0.12),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: colorScheme.primary.withValues(alpha: 0.25),
             ),
           ),
-        );
-      },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'What you’ll get',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              const _FinishBenefit(
+                icon: Icons.timer_outlined,
+                label: 'Live sober timer and milestones',
+              ),
+              const SizedBox(height: 8),
+              const _FinishBenefit(
+                icon: Icons.book_outlined,
+                label: 'Private journal with photo memories',
+              ),
+              const SizedBox(height: 8),
+              const _FinishBenefit(
+                icon: Icons.people_outline,
+                label: 'Anonymous community support',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        PrimaryButton(
+          label: 'Continue anonymously',
+          onPressed: submitting ? null : onSubmit,
+          isLoading: submitting,
+        ),
+        const SizedBox(height: 12),
+        SecondaryButton(
+          label: 'Use email instead',
+          onPressed: submitting
+              ? null
+              : () async {
+                  final result = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => _EmailAuthDialog(authRepo: authRepo),
+                  );
+                  if (result == true) {
+                    onSubmit();
+                  }
+                },
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Anonymous mode keeps you private. You can link an email anytime.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ],
     );
   }
 }

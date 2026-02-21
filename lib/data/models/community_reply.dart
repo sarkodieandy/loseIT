@@ -39,8 +39,9 @@ class CommunityReply {
       id: json['id'].toString(),
       postId: json['post_id']?.toString() ?? '',
       userId: json['user_id']?.toString() ?? '',
-      anonymousName: (json['anonymous_name'] as String?) ?? 'SoberFriend',
-      content: (json['content'] as String?) ?? '',
+      anonymousName:
+          (json['anonymous_name'] as String?) ?? (json['alias'] as String?) ?? 'SoberFriend',
+      content: (json['content'] as String?) ?? (json['message'] as String?) ?? '',
       createdAt: parseDate(json['created_at']),
     );
   }

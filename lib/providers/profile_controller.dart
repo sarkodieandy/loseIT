@@ -11,18 +11,23 @@ class ProfileController extends StateNotifier<AsyncValue<UserProfile?>> {
   final ProfileRepository _repository;
 
   Future<void> load() async {
+    if (!mounted) return;
     state = const AsyncValue.loading();
     try {
       final profile = await _repository.fetchProfile();
+      if (!mounted) return;
       state = AsyncValue.data(profile);
     } catch (error, stackTrace) {
+      if (!mounted) return;
       state = AsyncValue.error(error, stackTrace);
     }
   }
 
   Future<UserProfile> upsertProfile(UserProfile profile) async {
     final updated = await _repository.upsertProfile(profile);
-    state = AsyncValue.data(updated);
+    if (mounted) {
+      state = AsyncValue.data(updated);
+    }
     return updated;
   }
 }

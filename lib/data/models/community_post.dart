@@ -38,8 +38,9 @@ class CommunityPost {
     return CommunityPost(
       id: json['id'].toString(),
       userId: json['user_id']?.toString() ?? '',
-      anonymousName: (json['anonymous_name'] as String?) ?? 'SoberFriend',
-      content: (json['content'] as String?) ?? '',
+      anonymousName:
+          (json['anonymous_name'] as String?) ?? (json['alias'] as String?) ?? 'SoberFriend',
+      content: (json['content'] as String?) ?? (json['message'] as String?) ?? '',
       likes: (json['likes'] as num?)?.toInt() ?? 0,
       createdAt: parseDate(json['created_at']),
     );
