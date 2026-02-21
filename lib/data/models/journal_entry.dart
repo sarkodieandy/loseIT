@@ -4,6 +4,7 @@ class JournalEntry {
     required this.userId,
     required this.entryDate,
     required this.content,
+    this.habitId,
     this.mood,
     this.photoUrl,
     this.createdAt,
@@ -13,6 +14,7 @@ class JournalEntry {
   final String userId;
   final DateTime entryDate;
   final String content;
+  final String? habitId;
   final String? mood;
   final String? photoUrl;
   final DateTime? createdAt;
@@ -29,6 +31,7 @@ class JournalEntry {
       'user_id': userId,
       'entry_date': entryDate.toIso8601String(),
       'content': content,
+      'habit_id': habitId,
       'mood': mood,
       'photo_url': photoUrl,
       'created_at': createdAt?.toIso8601String(),
@@ -49,6 +52,7 @@ class JournalEntry {
       userId: json['user_id'] as String? ?? '',
       entryDate: parseDate(json['entry_date'] ?? json['created_at']),
       content: (json['content'] as String?) ?? '',
+      habitId: json['habit_id']?.toString(),
       mood: json['mood'] as String?,
       photoUrl: json['photo_url'] as String?,
       createdAt: json['created_at'] == null ? null : parseDate(json['created_at']),

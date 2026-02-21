@@ -37,6 +37,7 @@ class JournalRepository {
   Future<JournalEntry> createEntry({
     required String content,
     required DateTime entryDate,
+    String? habitId,
     String? mood,
     String? photoUrl,
   }) async {
@@ -47,6 +48,7 @@ class JournalRepository {
       'user_id': user.id,
       'entry_date': entryDate.toUtc().toIso8601String(),
       'content': content,
+      'habit_id': habitId,
       'mood': mood,
       'photo_url': photoUrl,
     };
