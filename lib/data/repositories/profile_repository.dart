@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/utils/app_logger.dart';
 import '../models/user_profile.dart';
 import '../services/local_cache_service.dart';
 
@@ -47,9 +48,23 @@ class ProfileRepository {
   }
 
   Future<String> uploadMotivationPhoto(File file, {required String userId}) async {
+    final bucket = 'motivation-photos';
     final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}';
     final path = '$userId/$fileName';
-    await _client.storage.from('motivation-photos').upload(path, file);
-    return _client.storage.from('motivation-photos').getPublicUrl(path);
+    AppLogger.info(
+      'Storage upload start bucket=$bucket path=$path size=${file.lengthSync()}',
+    );
+    try {
+      await _client.storage.from(bucket).upload(path, file);
+      final url = _client.storage.from(bucket).getPublicUrl(path);
+      AppLogger.info('Storage upload success bucket=$bucket path=$path');
+      return url;
+    } on StorageException catch (error, stackTrace) {
+      AppLogger.error('storage.upload.$bucket', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('storage.upload.$bucket', error, stackTrace);
+      rethrow;
+    }
   }
 }
