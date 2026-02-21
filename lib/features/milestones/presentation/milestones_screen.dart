@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/premium_gate.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../data/models/custom_milestone.dart';
+import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
 
@@ -13,6 +14,7 @@ class MilestonesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final milestonesAsync = ref.watch(customMilestonesProvider);
+    final isPremium = ref.watch(premiumControllerProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Custom Milestones')),
@@ -54,11 +56,13 @@ class MilestonesScreen extends ConsumerWidget {
           error: (error, _) => Center(child: Text('Failed: $error')),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'milestones_add',
-        onPressed: () => _showAddDialog(context, ref),
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: isPremium
+          ? FloatingActionButton(
+              heroTag: 'milestones_add',
+              onPressed: () => _showAddDialog(context, ref),
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 

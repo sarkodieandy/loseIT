@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/widgets/premium_gate.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../providers/data_providers.dart';
+import '../../../providers/app_providers.dart';
 import '../../../providers/repository_providers.dart';
 
 class SupportScreen extends ConsumerWidget {
@@ -13,6 +14,7 @@ class SupportScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final connectionsAsync = ref.watch(supportConnectionsProvider);
+    final isPremium = ref.watch(premiumControllerProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Support Network')),
@@ -46,11 +48,13 @@ class SupportScreen extends ConsumerWidget {
           error: (error, _) => Center(child: Text('Failed: $error')),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'support_add',
-        onPressed: () => _showAddDialog(context, ref),
-        child: const Icon(Icons.person_add_alt_1),
-      ),
+      floatingActionButton: isPremium
+          ? FloatingActionButton(
+              heroTag: 'support_add',
+              onPressed: () => _showAddDialog(context, ref),
+              child: const Icon(Icons.person_add_alt_1),
+            )
+          : null,
     );
   }
 
