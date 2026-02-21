@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'settings_controller.dart';
+import 'premium_controller.dart';
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
@@ -29,4 +30,9 @@ final themeModeProvider = Provider<ThemeMode>((ref) {
 
 final onboardingCompleteProvider = Provider<bool>((ref) {
   return ref.watch(settingsControllerProvider).onboardingComplete;
+});
+
+final premiumControllerProvider =
+    StateNotifierProvider<PremiumController, bool>((ref) {
+  return PremiumController();
 });

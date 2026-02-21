@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../features/analytics/presentation/analytics_screen.dart';
 import '../features/community/presentation/community_screen.dart';
 import '../features/community/presentation/community_thread_screen.dart';
 import '../features/community/presentation/create_post_screen.dart';
@@ -15,6 +16,7 @@ import '../features/journal/presentation/journal_screen.dart';
 import '../features/onboarding/presentation/onboarding_flow.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/relapse/presentation/relapse_screen.dart';
+import '../features/premium/presentation/paywall_screen.dart';
 import '../providers/app_providers.dart';
 import '../providers/data_providers.dart';
 import 'main_shell.dart';
@@ -90,6 +92,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: <RouteBase>[
               GoRoute(
+                path: '/analytics',
+                builder: (context, state) => const AnalyticsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
                 path: '/profile',
                 builder: (context, state) => const ProfileScreen(),
               ),
@@ -127,6 +137,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         path: '/relapse',
         builder: (context, state) => const RelapseScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/premium',
+        builder: (context, state) => const PaywallScreen(),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,

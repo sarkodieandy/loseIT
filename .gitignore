@@ -52,3 +52,4 @@ app.*.map.json
 /tool/dart_defines.env
 .env
 .env.*
+!.env.example

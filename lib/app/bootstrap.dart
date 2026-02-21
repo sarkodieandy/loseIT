@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/utils/app_logger.dart';
+import '../data/services/revenuecat_service.dart';
 import '../data/services/local_cache_service.dart';
 
 class AppBootstrap {
@@ -30,6 +31,9 @@ class AppBootstrap {
         autoRefreshToken: true,
       ),
     );
+
+    final revenueCatKey = dotenv.env['REVENUECAT_API_KEY'] ?? '';
+    await RevenueCatService.instance.initialize(revenueCatKey);
 
     Supabase.instance.client.auth.onAuthStateChange.listen((event) {
       final session = event.session;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/section_card.dart';
@@ -14,6 +15,7 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(profileControllerProvider);
     final settings = ref.watch(settingsControllerProvider);
+    final isPremium = ref.watch(premiumControllerProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
@@ -114,7 +116,15 @@ class ProfileScreen extends ConsumerWidget {
               children: <Widget>[
                 Text('Premium', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
-                const Text('All features are free for now. Premium will be added later.'),
+                Text(
+                  isPremium ? 'You are Premium.' : 'Unlock advanced features.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => context.push('/premium'),
+                  child: Text(isPremium ? 'Manage subscription' : 'Go Premium'),
+                ),
               ],
             ),
           ),
