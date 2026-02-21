@@ -1,0 +1,8 @@
+// Copy to `ios/Flutter/DartDefines.xcconfig` (gitignored) to inject custom
+// `--dart-define` values when building from Xcode.
+//
+// Recommended: generate this file via `bash tool/gen_dart_defines_xcconfig.sh`.
+//
+// Example (NOT real keys):
+// DART_DEFINES = $(inherited),<base64(KEY=VALUE)>,<base64(KEY=VALUE)>
+

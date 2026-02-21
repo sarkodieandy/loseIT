@@ -2,9 +2,10 @@ analyzer:
   language:
     strict-casts: true
     strict-raw-types: true
+  exclude:
+    - legacy/**
 
 linter:
   rules:
     avoid_print: true
     prefer_single_quotes: true
-

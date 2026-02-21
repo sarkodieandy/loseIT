@@ -43,3 +43,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/key.properties
+/android/*.jks
+/android/*.keystore
+
+# Local Dart defines (RevenueCat keys, etc.)
+/ios/Flutter/DartDefines.xcconfig
+/tool/dart_defines.env
+.env
+.env.*

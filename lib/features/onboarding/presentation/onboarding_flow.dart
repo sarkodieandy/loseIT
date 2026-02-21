@@ -1,77 +1,810 @@
-import 'package:flutter/cupertino.dart';
+import 'dart:async';
+import 'dart:io';
 
-import '../../../core/navigation/discipline_page_route.dart';
-import 'screens/addiction_selection_screen.dart';
-import 'screens/ai_prediction_reveal_screen.dart';
-import 'screens/frequency_severity_screen.dart';
-import 'screens/high_risk_time_screen.dart';
-import 'screens/premium_paywall_screen.dart';
-import 'screens/trigger_identification_screen.dart';
-import 'screens/welcome_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 
-class OnboardingFlow extends StatefulWidget {
+import '../../../core/constants/app_strings.dart';
+import '../../../core/widgets/app_buttons.dart';
+import '../../../providers/app_providers.dart';
+import '../../../providers/data_providers.dart';
+import '../../../providers/repository_providers.dart';
+import '../../../data/models/user_profile.dart';
+import '../../../data/repositories/auth_repository.dart';
+
+class OnboardingFlow extends ConsumerStatefulWidget {
   const OnboardingFlow({super.key});
 
-  static const welcome = '/';
-  static const addiction = '/addiction';
-  static const severity = '/severity';
-  static const triggers = '/triggers';
-  static const riskTime = '/risk-time';
-  static const prediction = '/prediction';
-  static const paywall = '/paywall';
-
   @override
-  State<OnboardingFlow> createState() => _OnboardingFlowState();
+  ConsumerState<OnboardingFlow> createState() => _OnboardingFlowState();
 }
 
-class _OnboardingFlowState extends State<OnboardingFlow> {
-  final _navKey = GlobalKey<NavigatorState>();
+class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
+  final PageController _controller = PageController();
+  int _pageIndex = 0;
+  bool _submitting = false;
 
-  Route<void> _route(Widget page, {String? name}) {
-    return DisciplinePageRoute<void>(
-      settings: RouteSettings(name: name),
-      builder: (_) => page,
+  late final TextEditingController _dailySpendController;
+  late final TextEditingController _dailyTimeController;
+
+  final List<String> _habits = const <String>[
+    'Alcohol',
+    'Smoking',
+    'Drugs',
+    'Other',
+  ];
+
+  String _habit = 'Alcohol';
+  String _customHabit = '';
+  DateTime _startDate = DateTime.now();
+  String _motivation = '';
+  double _dailySpend = 0;
+  int _dailyTime = 0;
+  File? _motivationPhoto;
+
+  @override
+  void initState() {
+    super.initState();
+    _dailySpendController = TextEditingController();
+    _dailyTimeController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _dailySpendController.dispose();
+    _dailyTimeController.dispose();
+    super.dispose();
+  }
+
+  void _next() {
+    if (_pageIndex >= 4) return;
+    _controller.nextPage(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _back() {
+    if (_pageIndex == 0) return;
+    _controller.previousPage(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (image == null) return;
+    setState(() {
+      _motivationPhoto = File(image.path);
+    });
+  }
+
+  Future<void> _completeOnboarding() async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+
+    final authRepo = ref.read(authRepositoryProvider);
+    final profileRepo = ref.read(profileRepositoryProvider);
+    final settings = ref.read(settingsControllerProvider.notifier);
+    final profileController = ref.read(profileControllerProvider.notifier);
+
+    try {
+      final existingSession = ref.read(sessionProvider);
+      final user = existingSession?.user ?? await authRepo.signInAnonymously();
+      if (user == null) {
+        throw Exception('Unable to create session.');
+      }
+
+      String? photoUrl;
+      if (_motivationPhoto != null) {
+        photoUrl = await profileRepo.uploadMotivationPhoto(
+          _motivationPhoto!,
+          userId: user.id,
+        );
+      }
+
+      final profile = UserProfile(
+        id: user.id,
+        soberStartDate: _startDate,
+        habitName: _habit,
+        habitCustomName: _customHabit.trim().isEmpty ? null : _customHabit.trim(),
+        dailySpend: _dailySpend <= 0 ? null : _dailySpend,
+        dailyTimeSpent: _dailyTime <= 0 ? null : _dailyTime,
+        motivationText: _motivation.trim().isEmpty ? null : _motivation.trim(),
+        motivationPhotoUrl: photoUrl,
+        createdAt: DateTime.now().toUtc(),
+        updatedAt: DateTime.now().toUtc(),
+      );
+
+      await profileRepo.createProfile(profile);
+      await settings.setOnboardingComplete(true);
+      await profileController.load();
+      if (mounted) {
+        context.go('/');
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final padding = media.padding;
+
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                children: <Widget>[
+                  if (_pageIndex > 0)
+                    IconButton(
+                      onPressed: _back,
+                      icon: const Icon(Icons.arrow_back),
+                    ),
+                  Expanded(
+                    child: LinearProgressIndicator(
+                      value: (_pageIndex + 1) / 5,
+                      minHeight: 6,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text('${_pageIndex + 1}/5'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: PageView(
+                controller: _controller,
+                onPageChanged: (index) => setState(() => _pageIndex = index),
+                children: <Widget>[
+                  _WelcomeStep(onNext: _next),
+                  _HabitStep(
+                    habits: _habits,
+                    habit: _habit,
+                    customHabit: _customHabit,
+                    spendController: _dailySpendController,
+                    timeController: _dailyTimeController,
+                    onChanged: (habit, custom, spend, time) {
+                      setState(() {
+                        _habit = habit;
+                        _customHabit = custom;
+                        _dailySpend = spend;
+                        _dailyTime = time;
+                      });
+                    },
+                    onNext: _next,
+                  ),
+                  _StartDateStep(
+                    startDate: _startDate,
+                    onDateChanged: (date) => setState(() => _startDate = date),
+                    onNext: _next,
+                  ),
+                  _MotivationStep(
+                    motivation: _motivation,
+                    photo: _motivationPhoto,
+                    onChanged: (value) => setState(() => _motivation = value),
+                    onPickPhoto: _pickPhoto,
+                    onNext: _next,
+                  ),
+                  _FinishStep(
+                    padding: padding,
+                    onSubmit: _completeOnboarding,
+                    submitting: _submitting,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WelcomeStep extends StatefulWidget {
+  const _WelcomeStep({required this.onNext});
+
+  final VoidCallback onNext;
+
+  @override
+  State<_WelcomeStep> createState() => _WelcomeStepState();
+}
+
+class _WelcomeStepState extends State<_WelcomeStep> {
+  static const _autoSlideDuration = Duration(seconds: 4);
+  static const _slideAnimationDuration = Duration(milliseconds: 650);
+
+  late final PageController _imageController;
+  Timer? _autoTimer;
+  int _currentIndex = 0;
+
+  final List<_IntroSlide> _slides = const <_IntroSlide>[
+    _IntroSlide(
+      title: 'Find your calm',
+      subtitle: 'Track sober time and celebrate every steady step.',
+      imageUrl:
+          'https://cdn.jsdelivr.net/npm/undraw-svg@1.0.0/svgs/a-moment-to-relax.svg',
+    ),
+    _IntroSlide(
+      title: 'Reflect daily',
+      subtitle: 'Capture wins, cravings, and motivation in a private journal.',
+      imageUrl:
+          'https://cdn.jsdelivr.net/npm/undraw-svg@1.0.0/svgs/add-notes.svg',
+    ),
+    _IntroSlide(
+      title: 'Lean on community',
+      subtitle: 'Anonymous support from people walking the same road.',
+      imageUrl:
+          'https://cdn.jsdelivr.net/npm/undraw-svg@1.0.0/svgs/online-community.svg',
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _imageController = PageController();
+    _autoTimer = Timer.periodic(_autoSlideDuration, (_) => _advanceSlide());
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    _imageController.dispose();
+    super.dispose();
+  }
+
+  void _advanceSlide() {
+    if (!mounted || !_imageController.hasClients) return;
+    final nextIndex = (_currentIndex + 1) % _slides.length;
+    _imageController.animateToPage(
+      nextIndex,
+      duration: _slideAnimationDuration,
+      curve: Curves.easeInOutCubic,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Navigator(
-      key: _navKey,
-      initialRoute: OnboardingFlow.welcome,
-      onGenerateRoute: (settings) {
-        return switch (settings.name) {
-          OnboardingFlow.welcome => _route(
-              const WelcomeScreen(),
-              name: OnboardingFlow.welcome,
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const SizedBox(height: 32),
+          Text(
+            AppStrings.appName,
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            AppStrings.tagline,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: Column(
+              children: <Widget>[
+                Expanded(
+                  child: PageView.builder(
+                    controller: _imageController,
+                    itemCount: _slides.length,
+                    physics: const NeverScrollableScrollPhysics(),
+                    onPageChanged: (index) => setState(() => _currentIndex = index),
+                    itemBuilder: (context, index) {
+                      final slide = _slides[index];
+                      return AnimatedBuilder(
+                        animation: _imageController,
+                        builder: (context, child) {
+                          var scale = 1.0;
+                          if (_imageController.hasClients &&
+                              _imageController.position.haveDimensions) {
+                            final page =
+                                _imageController.page ?? _imageController.initialPage.toDouble();
+                            final distance = (page - index).abs().clamp(0.0, 1.0);
+                            scale = 1.0 - (distance * 0.06);
+                          }
+                          return Transform.scale(scale: scale, child: child);
+                        },
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                child: SvgPicture.network(
+                                  slide.imageUrl,
+                                  fit: BoxFit.contain,
+                                  colorFilter: ColorFilter.mode(
+                                    colorScheme.primary.withValues(alpha: 0.85),
+                                    BlendMode.modulate,
+                                  ),
+                                  placeholderBuilder: (context) => Center(
+                                    child: SizedBox(
+                                      width: 32,
+                                      height: 32,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: colorScheme.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              slide.title,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              slide.subtitle,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _SlideDots(
+                  count: _slides.length,
+                  currentIndex: _currentIndex,
+                ),
+              ],
             ),
-          OnboardingFlow.addiction => _route(
-              const AddictionSelectionScreen(),
-              name: OnboardingFlow.addiction,
+          ),
+          const SizedBox(height: 16),
+          PrimaryButton(label: 'Get Started', onPressed: widget.onNext),
+        ],
+      ),
+    );
+  }
+}
+
+class _IntroSlide {
+  const _IntroSlide({
+    required this.title,
+    required this.subtitle,
+    required this.imageUrl,
+  });
+
+  final String title;
+  final String subtitle;
+  final String imageUrl;
+}
+
+class _SlideDots extends StatelessWidget {
+  const _SlideDots({
+    required this.count,
+    required this.currentIndex,
+  });
+
+  final int count;
+  final int currentIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (index) {
+        final selected = index == currentIndex;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          height: 6,
+          width: selected ? 22 : 8,
+          decoration: BoxDecoration(
+            color: selected
+                ? colorScheme.primary
+                : colorScheme.primary.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(999),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _HabitStep extends StatelessWidget {
+  const _HabitStep({
+    required this.habits,
+    required this.habit,
+    required this.customHabit,
+    required this.spendController,
+    required this.timeController,
+    required this.onChanged,
+    required this.onNext,
+  });
+
+  final List<String> habits;
+  final String habit;
+  final String customHabit;
+  final TextEditingController spendController;
+  final TextEditingController timeController;
+  final void Function(String habit, String custom, double spend, int time) onChanged;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: <Widget>[
+        Text(
+          'What are you focusing on?',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: habits.map((item) {
+            final selected = habit == item;
+            return ChoiceChip(
+              label: Text(item),
+              selected: selected,
+            onSelected: (_) => onChanged(
+              item,
+              customHabit,
+              double.tryParse(spendController.text) ?? 0,
+              int.tryParse(timeController.text) ?? 0,
             ),
-          OnboardingFlow.severity => _route(
-              const FrequencySeverityScreen(),
-              name: OnboardingFlow.severity,
+          );
+        }).toList(),
+      ),
+        if (habit == 'Other') ...[
+          const SizedBox(height: 16),
+          TextField(
+            decoration: const InputDecoration(
+              labelText: 'Custom habit name',
+              border: OutlineInputBorder(),
             ),
-          OnboardingFlow.triggers => _route(
-              const TriggerIdentificationScreen(),
-              name: OnboardingFlow.triggers,
+            onChanged: (value) => onChanged(
+              habit,
+              value,
+              double.tryParse(spendController.text) ?? 0,
+              int.tryParse(timeController.text) ?? 0,
             ),
-          OnboardingFlow.riskTime => _route(
-              const HighRiskTimeScreen(),
-              name: OnboardingFlow.riskTime,
+          ),
+        ],
+        const SizedBox(height: 20),
+        Text(
+          'Baseline (optional)',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: spendController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Daily spend (USD)',
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (value) => onChanged(
+            habit,
+            customHabit,
+            double.tryParse(value) ?? 0,
+            int.tryParse(timeController.text) ?? 0,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: timeController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Minutes spent daily',
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (value) => onChanged(
+            habit,
+            customHabit,
+            double.tryParse(spendController.text) ?? 0,
+            int.tryParse(value) ?? 0,
+          ),
+        ),
+        const SizedBox(height: 20),
+        PrimaryButton(label: 'Continue', onPressed: onNext),
+      ],
+    );
+  }
+}
+
+class _StartDateStep extends StatelessWidget {
+  const _StartDateStep({
+    required this.startDate,
+    required this.onDateChanged,
+    required this.onNext,
+  });
+
+  final DateTime startDate;
+  final ValueChanged<DateTime> onDateChanged;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'When did you start?',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'You can always adjust this later.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final selected = await showDatePicker(
+                context: context,
+                initialDate: startDate,
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+              );
+              if (selected != null) {
+                onDateChanged(selected);
+              }
+            },
+            icon: const Icon(Icons.calendar_today),
+            label: Text('${startDate.month}/${startDate.day}/${startDate.year}'),
+          ),
+          const Spacer(),
+          PrimaryButton(label: 'Continue', onPressed: onNext),
+        ],
+      ),
+    );
+  }
+}
+
+class _MotivationStep extends StatelessWidget {
+  const _MotivationStep({
+    required this.motivation,
+    required this.photo,
+    required this.onChanged,
+    required this.onPickPhoto,
+    required this.onNext,
+  });
+
+  final String motivation;
+  final File? photo;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onPickPhoto;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Your motivation',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            maxLines: 4,
+            decoration: const InputDecoration(
+              hintText: 'Write a note to your future self…',
+              border: OutlineInputBorder(),
             ),
-          OnboardingFlow.prediction => _route(
-              const AiPredictionRevealScreen(),
-              name: OnboardingFlow.prediction,
-            ),
-          OnboardingFlow.paywall => _route(
-              const PremiumPaywallScreen(),
-              name: OnboardingFlow.paywall,
-            ),
-          _ => _route(const WelcomeScreen(), name: OnboardingFlow.welcome),
-        };
-      },
+            onChanged: onChanged,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: <Widget>[
+              OutlinedButton.icon(
+                onPressed: onPickPhoto,
+                icon: const Icon(Icons.photo),
+                label: const Text('Add photo'),
+              ),
+              const SizedBox(width: 12),
+              if (photo != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(
+                    photo!,
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+            ],
+          ),
+          const Spacer(),
+          PrimaryButton(label: 'Continue', onPressed: onNext),
+        ],
+      ),
+    );
+  }
+}
+
+class _FinishStep extends ConsumerWidget {
+  const _FinishStep({
+    required this.padding,
+    required this.onSubmit,
+    required this.submitting,
+  });
+
+  final EdgeInsets padding;
+  final VoidCallback onSubmit;
+  final bool submitting;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authRepo = ref.read(authRepositoryProvider);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + padding.bottom),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Ready to begin?',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'You can stay anonymous or link an email for backups.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const Spacer(),
+          PrimaryButton(
+            label: 'Continue anonymously',
+            onPressed: submitting ? null : onSubmit,
+            isLoading: submitting,
+          ),
+          const SizedBox(height: 12),
+          SecondaryButton(
+            label: 'Use email instead',
+            onPressed: submitting
+                ? null
+                : () async {
+                    final result = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => _EmailAuthDialog(authRepo: authRepo),
+                    );
+                    if (result == true) {
+                      onSubmit();
+                    }
+                  },
+          ),
+          const SizedBox(height: 12),
+          SecondaryButton(
+            label: 'Sign in with Apple',
+            onPressed: () async {
+              await authRepo.signInWithApple();
+            },
+            icon: Icons.phone_iphone,
+          ),
+          const SizedBox(height: 8),
+          SecondaryButton(
+            label: 'Sign in with Google',
+            onPressed: () async {
+              await authRepo.signInWithGoogle();
+            },
+            icon: Icons.public,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmailAuthDialog extends StatefulWidget {
+  const _EmailAuthDialog({required this.authRepo});
+
+  final AuthRepository authRepo;
+
+  @override
+  State<_EmailAuthDialog> createState() => _EmailAuthDialogState();
+}
+
+class _EmailAuthDialogState extends State<_EmailAuthDialog> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isSignUp = true;
+  bool _loading = false;
+
+  Future<void> _submit() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      if (_isSignUp) {
+        await widget.authRepo.signUpWithEmail(
+          _emailController.text.trim(),
+          _passwordController.text.trim(),
+        );
+      } else {
+        await widget.authRepo.signInWithEmail(
+          _emailController.text.trim(),
+          _passwordController.text.trim(),
+        );
+      }
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(_isSignUp ? 'Create account' : 'Sign in'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          TextField(
+            controller: _emailController,
+            decoration: const InputDecoration(labelText: 'Email'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _passwordController,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Password'),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => setState(() => _isSignUp = !_isSignUp),
+            child: Text(_isSignUp
+                ? 'Already have an account? Sign in'
+                : 'Need an account? Sign up'),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _loading ? null : _submit,
+          child: Text(_loading ? 'Please wait…' : 'Continue'),
+        ),
+      ],
     );
   }
 }
