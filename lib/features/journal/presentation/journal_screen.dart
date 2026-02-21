@@ -17,6 +17,7 @@ class JournalScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Journal')),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'journal_fab',
         onPressed: () => context.push('/journal/new'),
         child: const Icon(Icons.add),
       ),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/anonymous_name.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../providers/app_providers.dart';
+import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
 
 class CreatePostScreen extends ConsumerStatefulWidget {
@@ -31,6 +33,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     try {
       final session = ref.read(sessionProvider);
       if (session == null) throw Exception('Not authenticated');
+      final profile = ref.read(profileControllerProvider).asData?.value;
+      if (profile == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Complete onboarding before posting.')),
+        );
+        context.go('/onboarding');
+        return;
+      }
       final alias = anonymousNameFor(session.user.id);
       await ref
           .read(communityRepositoryProvider)

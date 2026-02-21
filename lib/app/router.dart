@@ -4,8 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../features/community/presentation/community_screen.dart';
+import '../features/community/presentation/community_thread_screen.dart';
 import '../features/community/presentation/create_post_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
+import '../features/dm/presentation/dm_chat_screen.dart';
+import '../features/dm/presentation/dm_inbox_screen.dart';
 import '../features/journal/presentation/journal_editor_screen.dart';
 import '../features/journal/presentation/journal_entry_screen.dart';
 import '../features/journal/presentation/journal_screen.dart';
@@ -13,12 +16,18 @@ import '../features/onboarding/presentation/onboarding_flow.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/relapse/presentation/relapse_screen.dart';
 import '../providers/app_providers.dart';
+import '../providers/data_providers.dart';
 import 'main_shell.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
   final onboardingComplete = ref.watch(onboardingCompleteProvider);
+  final profileAsync = ref.watch(profileControllerProvider);
+  final hasProfile = profileAsync.maybeWhen(
+    data: (profile) => profile != null,
+    orElse: () => true,
+  );
   final refreshNotifier = GoRouterRefreshNotifier(ref);
   ref.onDispose(refreshNotifier.dispose);
 
@@ -31,6 +40,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onOnboarding = state.matchedLocation == '/onboarding';
 
       if (session == null || !onboardingComplete) {
+        return onOnboarding ? null : '/onboarding';
+      }
+
+      if (!hasProfile) {
         return onOnboarding ? null : '/onboarding';
       }
 
@@ -104,8 +117,45 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
+        path: '/community/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return CommunityThreadScreen(postId: id);
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: '/relapse',
         builder: (context, state) => const RelapseScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/dm',
+        builder: (context, state) => const DmInboxScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/dm/thread/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          final extra = state.extra;
+          return DmChatScreen(
+            threadId: id,
+            otherAlias: extra is String ? extra : null,
+          );
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/dm/user/:userId',
+        builder: (context, state) {
+          final userId = state.pathParameters['userId'];
+          final extra = state.extra;
+          return DmChatScreen(
+            otherUserId: userId,
+            otherAlias: extra is String ? extra : null,
+          );
+        },
       ),
     ],
   );

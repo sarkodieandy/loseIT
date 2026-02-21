@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/community_repository.dart';
+import '../data/repositories/dm_repository.dart';
 import '../data/repositories/journal_repository.dart';
 import '../data/repositories/profile_repository.dart';
 import '../data/repositories/relapse_repository.dart';
@@ -25,6 +26,11 @@ final journalRepositoryProvider = Provider<JournalRepository>((ref) {
 final communityRepositoryProvider = Provider<CommunityRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return CommunityRepository(client);
+});
+
+final dmRepositoryProvider = Provider<DmRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return DmRepository(client);
 });
 
 final relapseRepositoryProvider = Provider<RelapseRepository>((ref) {

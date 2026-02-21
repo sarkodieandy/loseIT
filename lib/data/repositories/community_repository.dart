@@ -1,6 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/utils/app_logger.dart';
 import '../models/community_post.dart';
+import '../models/community_reply.dart';
 
 class CommunityRepository {
   CommunityRepository(this._client);
@@ -20,11 +22,30 @@ class CommunityRepository {
             .toList(growable: false));
   }
 
+  Future<CommunityPost?> fetchPost(String id) async {
+    try {
+      final row = await _client
+          .from('community_posts')
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      if (row == null) return null;
+      return CommunityPost.fromJson(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error, stackTrace) {
+      AppLogger.error('community.fetchPost', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('community.fetchPost', error, stackTrace);
+      rethrow;
+    }
+  }
+
   Future<CommunityPost> createPost({
     required String content,
     required String anonymousName,
   }) async {
     final user = _client.auth.currentUser;
+    AppLogger.info('Community createPost userId=${user?.id}');
     if (user == null) throw const AuthException('Not authenticated');
 
     final payload = <String, dynamic>{
@@ -33,14 +54,74 @@ class CommunityRepository {
       'content': content,
     };
 
-    final row = await _client.from('community_posts').insert(payload).select().single();
-    return CommunityPost.fromJson(Map<String, dynamic>.from(row));
+    try {
+      final row = await _client.from('community_posts').insert(payload).select().single();
+      AppLogger.info('Community createPost success id=${row['id']}');
+      return CommunityPost.fromJson(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error, stackTrace) {
+      AppLogger.error('community.createPost', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('community.createPost', error, stackTrace);
+      rethrow;
+    }
+  }
+
+  Stream<List<CommunityReply>> streamReplies(String postId) {
+    return _client
+        .from('community_replies')
+        .stream(primaryKey: ['id'])
+        .eq('post_id', postId)
+        .order('created_at')
+        .map((rows) => rows
+            .map((row) => CommunityReply.fromJson(
+                  Map<String, dynamic>.from(row as Map),
+                ))
+            .toList(growable: false));
+  }
+
+  Future<CommunityReply> createReply({
+    required String postId,
+    required String content,
+    required String anonymousName,
+  }) async {
+    final user = _client.auth.currentUser;
+    AppLogger.info('Community createReply userId=${user?.id} postId=$postId');
+    if (user == null) throw const AuthException('Not authenticated');
+
+    final payload = <String, dynamic>{
+      'post_id': postId,
+      'user_id': user.id,
+      'anonymous_name': anonymousName,
+      'content': content,
+    };
+
+    try {
+      final row =
+          await _client.from('community_replies').insert(payload).select().single();
+      AppLogger.info('Community createReply success id=${row['id']}');
+      return CommunityReply.fromJson(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error, stackTrace) {
+      AppLogger.error('community.createReply', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('community.createReply', error, stackTrace);
+      rethrow;
+    }
   }
 
   Future<void> likePost(String id, int currentLikes) async {
-    await _client
-        .from('community_posts')
-        .update(<String, dynamic>{'likes': currentLikes + 1})
-        .eq('id', id);
+    try {
+      await _client
+          .from('community_posts')
+          .update(<String, dynamic>{'likes': currentLikes + 1})
+          .eq('id', id);
+    } on PostgrestException catch (error, stackTrace) {
+      AppLogger.error('community.likePost', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('community.likePost', error, stackTrace);
+      rethrow;
+    }
   }
 }

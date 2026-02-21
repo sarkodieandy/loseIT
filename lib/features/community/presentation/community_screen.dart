@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/section_card.dart';
+import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
 
@@ -13,11 +14,16 @@ class CommunityScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final feedAsync = ref.watch(communityFeedProvider);
+    final session = ref.watch(sessionProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Community'),
         actions: <Widget>[
+          IconButton(
+            onPressed: () => context.push('/dm'),
+            icon: const Icon(Icons.chat_bubble_outline),
+          ),
           IconButton(
             onPressed: () => context.push('/community/new'),
             icon: const Icon(Icons.edit_note),
@@ -64,6 +70,30 @@ class CommunityScreen extends ConsumerWidget {
                           icon: const Icon(Icons.favorite_border),
                         ),
                         Text('${post.likes}'),
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          onPressed: () => context.push('/community/${post.id}'),
+                          icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                          label: const Text('Reply'),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: () {
+                            if (session?.user.id == post.userId) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('You cannot message yourself.'),
+                                ),
+                              );
+                              return;
+                            }
+                            context.push(
+                              '/dm/user/${post.userId}',
+                              extra: post.anonymousName,
+                            );
+                          },
+                          icon: const Icon(Icons.send),
+                        ),
                       ],
                     ),
                   ],
@@ -78,6 +108,7 @@ class CommunityScreen extends ConsumerWidget {
         error: (error, _) => Center(child: Text('Failed: $error')),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'community_fab',
         onPressed: () => context.push('/community/new'),
         child: const Icon(Icons.add),
       ),
