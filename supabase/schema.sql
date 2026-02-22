@@ -279,6 +279,17 @@ create table if not exists public.mood_logs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.urge_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  habit_id uuid null references public.user_habits (id) on delete set null,
+  intensity integer not null,
+  trigger text null,
+  note text null,
+  occurred_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.challenges (
   id uuid primary key default gen_random_uuid(),
   title text not null,
@@ -444,6 +455,7 @@ alter table public.relapse_logs enable row level security;
 alter table public.user_habits enable row level security;
 alter table public.custom_milestones enable row level security;
 alter table public.mood_logs enable row level security;
+alter table public.urge_logs enable row level security;
 alter table public.challenges enable row level security;
 alter table public.user_challenges enable row level security;
 alter table public.group_checkins enable row level security;
@@ -668,6 +680,27 @@ with check (auth.uid() = user_id);
 drop policy if exists mood_logs_delete_own on public.mood_logs;
 create policy mood_logs_delete_own
 on public.mood_logs
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists urge_logs_select_own on public.urge_logs;
+create policy urge_logs_select_own
+on public.urge_logs
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists urge_logs_insert_own on public.urge_logs;
+create policy urge_logs_insert_own
+on public.urge_logs
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists urge_logs_delete_own on public.urge_logs;
+create policy urge_logs_delete_own
+on public.urge_logs
 for delete
 to authenticated
 using (auth.uid() = user_id);
@@ -939,6 +972,9 @@ create index if not exists idx_custom_milestones_user
 
 create index if not exists idx_mood_logs_user_date
   on public.mood_logs (user_id, logged_date desc);
+
+create index if not exists idx_urge_logs_user_date
+  on public.urge_logs (user_id, occurred_at desc);
 
 create index if not exists idx_challenges_kind_active
   on public.challenges (kind, is_active, member_count desc, created_at desc);

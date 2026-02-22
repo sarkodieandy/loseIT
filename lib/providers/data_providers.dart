@@ -20,6 +20,7 @@ import '../data/models/support_message.dart';
 import '../data/models/custom_milestone.dart';
 import '../data/models/journal_entry.dart';
 import '../data/models/relapse_log.dart';
+import '../data/models/urge_log.dart';
 import '../data/models/user_profile.dart';
 import '../providers/app_providers.dart';
 import '../providers/journal_controller.dart';
@@ -185,4 +186,9 @@ final customMilestonesProvider = FutureProvider<List<CustomMilestone>>((ref) {
 final relapseLogsProvider = FutureProvider<List<RelapseLog>>((ref) {
   final repository = ref.watch(relapseRepositoryProvider);
   return repository.fetchLogs();
+});
+
+final urgeLogsProvider = FutureProvider<List<UrgeLog>>((ref) {
+  final repository = ref.watch(urgeRepositoryProvider);
+  return repository.fetchLogs(limit: 120);
 });

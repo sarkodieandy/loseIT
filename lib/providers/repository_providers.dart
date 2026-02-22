@@ -13,6 +13,7 @@ import '../data/repositories/prompts_repository.dart';
 import '../data/repositories/profile_repository.dart';
 import '../data/repositories/relapse_repository.dart';
 import '../data/repositories/support_repository.dart';
+import '../data/repositories/urge_repository.dart';
 import 'app_providers.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -78,4 +79,9 @@ final milestonesRepositoryProvider = Provider<MilestonesRepository>((ref) {
 final relapseRepositoryProvider = Provider<RelapseRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return RelapseRepository(client);
+});
+
+final urgeRepositoryProvider = Provider<UrgeRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return UrgeRepository(client);
 });

@@ -18,6 +18,7 @@ import '../features/insights/presentation/insights_screen.dart';
 import '../features/support/presentation/support_chat_screen.dart';
 import '../features/support/presentation/support_screen.dart';
 import '../features/focus/presentation/focus_screen.dart';
+import '../features/focus/presentation/urge_timer_screen.dart';
 import '../features/milestones/presentation/milestones_screen.dart';
 import '../features/journal/presentation/journal_editor_screen.dart';
 import '../features/journal/presentation/journal_entry_screen.dart';
@@ -215,6 +216,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         path: '/focus',
         builder: (context, state) => const FocusScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/focus/urge',
+        builder: (context, state) => const UrgeTimerScreen(),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
