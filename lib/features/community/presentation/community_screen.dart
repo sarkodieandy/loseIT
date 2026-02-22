@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -74,7 +75,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             switchInCurve: AppMotion.emphasized,
             switchOutCurve: AppMotion.exit,
             transitionBuilder: (child, animation) {
-              final curved = CurvedAnimation(parent: animation, curve: AppMotion.emphasized);
+              final curved = CurvedAnimation(
+                  parent: animation, curve: AppMotion.emphasized);
               return FadeTransition(
                 opacity: curved,
                 child: ScaleTransition(
@@ -100,7 +102,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                   onPressed: () => context.push('/groups/new'),
                   child: const Icon(Icons.group_add_outlined),
                 ),
-              _TribeTopTab.messages => const SizedBox.shrink(key: ValueKey('fab_none')),
+              _TribeTopTab.messages =>
+                const SizedBox.shrink(key: ValueKey('fab_none')),
             },
           ),
         ),
@@ -124,7 +127,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           SafeArea(
             child: NotificationListener<UserScrollNotification>(
               onNotification: (notification) {
-                if (notification.direction == ScrollDirection.reverse && _showFab) {
+                if (notification.direction == ScrollDirection.reverse &&
+                    _showFab) {
                   setState(() => _showFab = false);
                 } else if (notification.direction == ScrollDirection.forward &&
                     !_showFab) {
@@ -204,7 +208,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         ? postsValue
             .where(
               (p) =>
-                  (p.category ?? '').toLowerCase() == 'win' && _isToday(p.createdAt),
+                  (p.category ?? '').toLowerCase() == 'win' &&
+                  _isToday(p.createdAt),
             )
             .length
         : null;
@@ -373,7 +378,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                   beginOffset: const Offset(0.10, 0),
                   child: _TribeGroupCard(
                     challenge: challenges[index],
-                    onTap: () => context.push('/groups/${challenges[index].id}'),
+                    onTap: () =>
+                        context.push('/groups/${challenges[index].id}'),
                   ),
                 ),
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
@@ -831,7 +837,8 @@ class _PulseDotState extends State<_PulseDot>
 
   @override
   Widget build(BuildContext context) {
-    final anim = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    final anim =
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
 
     return SizedBox(
       width: 12,
@@ -992,7 +999,9 @@ class _TabItem extends StatelessWidget {
           duration: AppMotion.medium,
           curve: AppMotion.emphasized,
           decoration: BoxDecoration(
-            color: selected ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
+            color: selected
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(999),
           ),
           child: InkWell(
@@ -1155,10 +1164,13 @@ class _TribePostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timeAgo = Formatters.timeAgo(post.createdAt);
-    final topic = (post.topic?.trim().isNotEmpty ?? false) ? post.topic!.trim() : 'General';
+    final topic = (post.topic?.trim().isNotEmpty ?? false)
+        ? post.topic!.trim()
+        : 'General';
     final streak = _streakText(post);
     final header = streak.isEmpty ? 'Anon' : 'Anon • $streak';
-    final badge = (post.badge?.trim().isNotEmpty ?? false) ? post.badge!.trim() : null;
+    final badge =
+        (post.badge?.trim().isNotEmpty ?? false) ? post.badge!.trim() : null;
     final cta = _ctaText(post);
 
     return Container(
@@ -1239,7 +1251,8 @@ class _TribePostCard extends StatelessWidget {
                 onPressed: isSelf ? null : onSendSupport,
                 style: TextButton.styleFrom(
                   foregroundColor: _TribeColors.accent,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 ),
                 child: Row(
                   children: <Widget>[
@@ -1566,7 +1579,8 @@ class _TribeThreadRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final otherUserId = thread.userA == myUserId ? thread.userB : thread.userA;
-    final alias = 'Anon#${otherUserId.replaceAll('-', '').toUpperCase().substring(0, 4)}';
+    final alias =
+        'Anon#${otherUserId.replaceAll('-', '').toUpperCase().substring(0, 4)}';
     final last = Formatters.timeAgo(thread.lastMessageAt);
 
     return InkWell(
@@ -1758,5 +1772,7 @@ class _TribeHighlightCard extends StatelessWidget {
 
 bool _isToday(DateTime value) {
   final now = DateTime.now();
-  return value.year == now.year && value.month == now.month && value.day == now.day;
+  return value.year == now.year &&
+      value.month == now.month &&
+      value.day == now.day;
 }
