@@ -60,11 +60,19 @@ post_install do |installer|
   if File.exist?(hybrid_file)
     begin
       contents = File.read(hybrid_file)
-      patched = contents.gsub(
-        /(?<!\.)\bSubscriptionPeriod\b/,
-        'PurchasesHybridCommon.SubscriptionPeriod'
-      )
+      # Handle both:
+      # 1) Upstream file: `SubscriptionPeriod` (ambiguous)
+      # 2) Our older patch: `PurchasesHybridCommon.SubscriptionPeriod` (wrong module)
+      patched = contents
+        .gsub('PurchasesHybridCommon.SubscriptionPeriod', 'RevenueCat.SubscriptionPeriod')
+        .gsub(/(?<!\.)\bSubscriptionPeriod\b/, 'RevenueCat.SubscriptionPeriod')
       if patched != contents
+        # CocoaPods may mark sources as read-only. Ensure we can write.
+        begin
+          File.chmod(0644, hybrid_file)
+        rescue
+          # Ignore chmod failures; File.write will error and be caught below.
+        end
         File.write(hybrid_file, patched)
       end
     rescue => e
