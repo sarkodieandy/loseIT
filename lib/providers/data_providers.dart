@@ -44,13 +44,26 @@ final journalControllerProvider =
   return JournalController(repository);
 });
 
+Object _asObject(dynamic value, String fallback) {
+  if (value is Object) return value;
+  return Exception(fallback);
+}
+
+StackTrace? _asStackTrace(dynamic value) {
+  return value is StackTrace ? value : null;
+}
+
 final communityFeedProvider =
     StreamProvider.family<List<CommunityPost>, String?>((ref, category) {
   final repository = ref.watch(communityRepositoryProvider);
   return repository
       .streamFeed(category: category)
       .handleError((error, stackTrace) {
-    AppLogger.error('community.feed.stream', error, stackTrace);
+    AppLogger.error(
+      'community.feed.stream',
+      _asObject(error, 'Unknown community feed stream error'),
+      _asStackTrace(stackTrace),
+    );
   });
 });
 
@@ -115,21 +128,33 @@ final communityRepliesProvider =
     StreamProvider.family<List<CommunityReply>, String>((ref, postId) {
   final repository = ref.watch(communityRepositoryProvider);
   return repository.streamReplies(postId).handleError((error, stackTrace) {
-    AppLogger.error('community.replies.stream', error, stackTrace);
+    AppLogger.error(
+      'community.replies.stream',
+      _asObject(error, 'Unknown community replies stream error'),
+      _asStackTrace(stackTrace),
+    );
   });
 });
 
 final dmThreadsProvider = StreamProvider<List<DmThread>>((ref) {
   final repository = ref.watch(dmRepositoryProvider);
   return repository.streamThreads().handleError((error, stackTrace) {
-    AppLogger.error('dm.threads.stream', error, stackTrace);
+    AppLogger.error(
+      'dm.threads.stream',
+      _asObject(error, 'Unknown dm threads stream error'),
+      _asStackTrace(stackTrace),
+    );
   });
 });
 
 final dmMessagesProvider = StreamProvider.family<List<DmMessage>, String>((ref, threadId) {
   final repository = ref.watch(dmRepositoryProvider);
   return repository.streamMessages(threadId).handleError((error, stackTrace) {
-    AppLogger.error('dm.messages.stream', error, stackTrace);
+    AppLogger.error(
+      'dm.messages.stream',
+      _asObject(error, 'Unknown dm messages stream error'),
+      _asStackTrace(stackTrace),
+    );
   });
 });
 
@@ -162,7 +187,11 @@ final groupCheckinsProvider =
     StreamProvider.family<List<GroupCheckin>, String>((ref, groupId) {
   final repository = ref.watch(challengesRepositoryProvider);
   return repository.streamGroupCheckins(groupId).handleError((error, stackTrace) {
-    AppLogger.error('groups.checkins.stream', error, stackTrace);
+    AppLogger.error(
+      'groups.checkins.stream',
+      _asObject(error, 'Unknown group checkins stream error'),
+      _asStackTrace(stackTrace),
+    );
   });
 });
 
@@ -170,7 +199,11 @@ final groupMessagesProvider =
     StreamProvider.family<List<GroupMessage>, String>((ref, groupId) {
   final repository = ref.watch(challengesRepositoryProvider);
   return repository.streamGroupMessages(groupId).handleError((error, stackTrace) {
-    AppLogger.error('groups.messages.stream', error, stackTrace);
+    AppLogger.error(
+      'groups.messages.stream',
+      _asObject(error, 'Unknown group messages stream error'),
+      _asStackTrace(stackTrace),
+    );
   });
 });
 
@@ -198,7 +231,11 @@ final supportMessagesProvider =
     StreamProvider.family<List<SupportMessage>, String>((ref, connectionId) {
   final repository = ref.watch(supportRepositoryProvider);
   return repository.streamMessages(connectionId).handleError((error, stackTrace) {
-    AppLogger.error('support.messages.stream', error, stackTrace);
+    AppLogger.error(
+      'support.messages.stream',
+      _asObject(error, 'Unknown support messages stream error'),
+      _asStackTrace(stackTrace),
+    );
   });
 });
 

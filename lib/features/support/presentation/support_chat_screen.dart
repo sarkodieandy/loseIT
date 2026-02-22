@@ -52,7 +52,8 @@ class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final messagesAsync = ref.watch(supportMessagesProvider(widget.connectionId));
+    final messagesAsync =
+        ref.watch(supportMessagesProvider(widget.connectionId));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Support Chat')),
