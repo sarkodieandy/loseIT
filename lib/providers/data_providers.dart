@@ -18,6 +18,7 @@ import '../data/models/support_connection.dart';
 import '../data/models/support_message.dart';
 import '../data/models/custom_milestone.dart';
 import '../data/models/journal_entry.dart';
+import '../data/models/relapse_log.dart';
 import '../data/models/user_profile.dart';
 import '../providers/app_providers.dart';
 import '../providers/journal_controller.dart';
@@ -167,4 +168,9 @@ final supportMessagesProvider =
 final customMilestonesProvider = FutureProvider<List<CustomMilestone>>((ref) {
   final repository = ref.watch(milestonesRepositoryProvider);
   return repository.fetchMilestones();
+});
+
+final relapseLogsProvider = FutureProvider<List<RelapseLog>>((ref) {
+  final repository = ref.watch(relapseRepositoryProvider);
+  return repository.fetchLogs();
 });

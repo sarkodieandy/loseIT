@@ -17,7 +17,8 @@ class MoodRepository {
           .from('mood_logs')
           .select()
           .eq('user_id', user.id)
-          .order('logged_date', ascending: false) as List<dynamic>;
+          .order('logged_date', ascending: false)
+          .limit(90) as List<dynamic>;
       return rows
           .map((row) => MoodLog.fromJson(Map<String, dynamic>.from(row as Map)))
           .toList(growable: false);
@@ -38,11 +39,16 @@ class MoodRepository {
     final user = _client.auth.currentUser;
     if (user == null) throw const AuthException('Not authenticated');
 
+    final date = loggedDate ?? DateTime.now();
+    final dateOnly = DateTime(date.year, date.month, date.day)
+        .toIso8601String()
+        .substring(0, 10);
+
     final payload = <String, dynamic>{
       'user_id': user.id,
       'mood': mood,
       'note': note,
-      'logged_date': (loggedDate ?? DateTime.now()).toIso8601String(),
+      'logged_date': dateOnly,
     };
 
     try {
