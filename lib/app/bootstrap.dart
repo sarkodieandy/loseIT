@@ -11,8 +11,11 @@ class AppBootstrap {
   static Future<void> initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
 
+    AppLogger.info('Bootstrap: loading .env');
     await dotenv.load(fileName: '.env');
+    AppLogger.info('Bootstrap: init Hive');
     await Hive.initFlutter();
+    AppLogger.info('Bootstrap: init local cache');
     await LocalCacheService.instance.initialize();
 
     final supabaseUrl = dotenv.env['SUPABASE_URL'] ??
@@ -24,6 +27,7 @@ class AppBootstrap {
       AppLogger.warn('Missing SUPABASE_URL or SUPABASE_ANON_KEY in .env');
     }
 
+    AppLogger.info('Bootstrap: initializing Supabase');
     await Supabase.initialize(
       url: supabaseUrl,
       anonKey: supabaseAnonKey,
@@ -32,7 +36,9 @@ class AppBootstrap {
       ),
     );
 
+    AppLogger.info('Bootstrap: initializing notifications');
     await NotificationService.instance.initialize();
+    AppLogger.info('Bootstrap: done');
 
     Supabase.instance.client.auth.onAuthStateChange.listen((event) {
       final session = event.session;

@@ -6,7 +6,9 @@ import 'app/bootstrap.dart';
 import 'core/utils/app_logger.dart';
 
 Future<void> main() async {
+  AppLogger.info('App starting');
   await AppBootstrap.initialize();
+  AppLogger.info('App bootstrap complete');
 
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
