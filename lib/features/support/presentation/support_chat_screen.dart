@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
@@ -21,6 +22,12 @@ class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
   final _controller = TextEditingController();
   bool _sending = false;
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _send() async {
     if (_sending) return;
     final text = _controller.text.trim();
@@ -32,7 +39,8 @@ class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
             message: text,
           );
       _controller.clear();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      AppLogger.error('support.sendMessage', error, stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),

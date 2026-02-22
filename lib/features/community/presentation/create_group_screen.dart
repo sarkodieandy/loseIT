@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/app_logger.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
@@ -66,7 +67,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
       ref.invalidate(userChallengesProvider);
       if (!mounted) return;
       context.pop();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      AppLogger.error('groups.create', error, stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),
@@ -225,4 +227,3 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
     );
   }
 }
-

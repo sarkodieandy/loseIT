@@ -156,7 +156,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       if (mounted) {
         context.go('/');
       }
-    } catch (error) {
+    } catch (error, stackTrace) {
+      AppLogger.error('onboarding.complete', error, stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),
@@ -1072,7 +1073,8 @@ class _EmailAuthDialogState extends State<_EmailAuthDialog> {
       }
       if (!mounted) return;
       Navigator.of(context).pop(true);
-    } catch (error) {
+    } catch (error, stackTrace) {
+      AppLogger.error('onboarding.emailAuth', error, stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),

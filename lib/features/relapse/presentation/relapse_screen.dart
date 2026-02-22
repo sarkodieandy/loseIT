@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../providers/repository_providers.dart';
 
@@ -28,7 +29,8 @@ class _RelapseScreenState extends ConsumerState<RelapseScreen> {
           );
       if (!mounted) return;
       Navigator.of(context).pop();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      AppLogger.error('relapse.create', error, stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),

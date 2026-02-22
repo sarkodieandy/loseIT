@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/anonymous_name.dart';
+import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../providers/app_providers.dart';
@@ -71,7 +72,8 @@ class _DmChatScreenState extends ConsumerState<DmChatScreen> {
             content: text,
           );
       _controller.clear();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      AppLogger.error('dm.send', error, stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),
@@ -91,7 +93,8 @@ class _DmChatScreenState extends ConsumerState<DmChatScreen> {
             threadId: threadId,
             content: text,
           );
-    } catch (error) {
+    } catch (error, stackTrace) {
+      AppLogger.error('dm.sendNudge', error, stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),

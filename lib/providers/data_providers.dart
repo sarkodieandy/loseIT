@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/utils/app_logger.dart';
 import '../data/models/community_post.dart';
 import '../data/models/community_reply.dart';
 import '../data/models/dm_message.dart';
@@ -46,7 +47,11 @@ final journalControllerProvider =
 final communityFeedProvider =
     StreamProvider.family<List<CommunityPost>, String?>((ref, category) {
   final repository = ref.watch(communityRepositoryProvider);
-  return repository.streamFeed(category: category);
+  return repository
+      .streamFeed(category: category)
+      .handleError((error, stackTrace) {
+    AppLogger.error('community.feed.stream', error, stackTrace);
+  });
 });
 
 final communityOnlineCountProvider = StreamProvider<int>((ref) {
@@ -109,17 +114,23 @@ final communityPostProvider = FutureProvider.family<CommunityPost?, String>((ref
 final communityRepliesProvider =
     StreamProvider.family<List<CommunityReply>, String>((ref, postId) {
   final repository = ref.watch(communityRepositoryProvider);
-  return repository.streamReplies(postId);
+  return repository.streamReplies(postId).handleError((error, stackTrace) {
+    AppLogger.error('community.replies.stream', error, stackTrace);
+  });
 });
 
 final dmThreadsProvider = StreamProvider<List<DmThread>>((ref) {
   final repository = ref.watch(dmRepositoryProvider);
-  return repository.streamThreads();
+  return repository.streamThreads().handleError((error, stackTrace) {
+    AppLogger.error('dm.threads.stream', error, stackTrace);
+  });
 });
 
 final dmMessagesProvider = StreamProvider.family<List<DmMessage>, String>((ref, threadId) {
   final repository = ref.watch(dmRepositoryProvider);
-  return repository.streamMessages(threadId);
+  return repository.streamMessages(threadId).handleError((error, stackTrace) {
+    AppLogger.error('dm.messages.stream', error, stackTrace);
+  });
 });
 
 final habitsProvider = FutureProvider<List<UserHabit>>((ref) {
@@ -150,13 +161,17 @@ final groupProvider = FutureProvider.family<Challenge?, String>((ref, groupId) {
 final groupCheckinsProvider =
     StreamProvider.family<List<GroupCheckin>, String>((ref, groupId) {
   final repository = ref.watch(challengesRepositoryProvider);
-  return repository.streamGroupCheckins(groupId);
+  return repository.streamGroupCheckins(groupId).handleError((error, stackTrace) {
+    AppLogger.error('groups.checkins.stream', error, stackTrace);
+  });
 });
 
 final groupMessagesProvider =
     StreamProvider.family<List<GroupMessage>, String>((ref, groupId) {
   final repository = ref.watch(challengesRepositoryProvider);
-  return repository.streamGroupMessages(groupId);
+  return repository.streamGroupMessages(groupId).handleError((error, stackTrace) {
+    AppLogger.error('groups.messages.stream', error, stackTrace);
+  });
 });
 
 final badgesProvider = FutureProvider<List<Badge>>((ref) {
@@ -182,7 +197,9 @@ final supportConnectionsProvider = FutureProvider<List<SupportConnection>>((ref)
 final supportMessagesProvider =
     StreamProvider.family<List<SupportMessage>, String>((ref, connectionId) {
   final repository = ref.watch(supportRepositoryProvider);
-  return repository.streamMessages(connectionId);
+  return repository.streamMessages(connectionId).handleError((error, stackTrace) {
+    AppLogger.error('support.messages.stream', error, stackTrace);
+  });
 });
 
 final customMilestonesProvider = FutureProvider<List<CustomMilestone>>((ref) {

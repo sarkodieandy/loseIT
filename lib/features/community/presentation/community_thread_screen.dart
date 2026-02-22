@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/anonymous_name.dart';
+import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
@@ -33,6 +34,12 @@ class CommunityThreadScreen extends ConsumerStatefulWidget {
 class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
   final _controller = TextEditingController();
   bool _sending = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   Future<void> _sendReply() async {
     if (_sending) return;
@@ -65,7 +72,8 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
             anonymousName: alias,
           );
       _controller.clear();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      AppLogger.error('community.reply', error, stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),

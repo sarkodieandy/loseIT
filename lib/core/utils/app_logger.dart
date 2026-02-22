@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AppLogger {
   static void info(String message) {
@@ -17,12 +18,34 @@ class AppLogger {
     StackTrace? stackTrace,
   ]) {
     final timestamp = DateTime.now().toIso8601String();
-    debugPrint('[$timestamp] ERROR [$scope] $error');
+    debugPrint('[$timestamp] ERROR [$scope] ${_formatError(error)}');
     if (stackTrace != null) {
       debugPrintStack(
         label: '[$timestamp] STACK [$scope]',
         stackTrace: stackTrace,
       );
     }
+  }
+
+  static String _formatError(Object error) {
+    if (error is PostgrestException) {
+      return 'PostgrestException('
+          'code=${error.code}, '
+          'message=${error.message}, '
+          'details=${error.details}, '
+          'hint=${error.hint}'
+          ')';
+    }
+    if (error is StorageException) {
+      return 'StorageException('
+          'statusCode=${error.statusCode}, '
+          'message=${error.message}, '
+          'error=${error.error}'
+          ')';
+    }
+    if (error is AuthException) {
+      return 'AuthException(message=${error.message})';
+    }
+    return error.toString();
   }
 }

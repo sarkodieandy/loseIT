@@ -29,7 +29,8 @@ class JournalRepository {
           .toList(growable: false);
       await LocalCacheService.instance.cacheJournalEntries(entries);
       return entries;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLogger.error('journal.fetchEntries', error, stackTrace);
       return LocalCacheService.instance.getCachedJournalEntries();
     }
   }

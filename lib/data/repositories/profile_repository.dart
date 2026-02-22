@@ -27,7 +27,8 @@ class ProfileRepository {
       final profile = UserProfile.fromJson(Map<String, dynamic>.from(data));
       await LocalCacheService.instance.cacheProfile(profile);
       return profile;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLogger.error('profile.fetch', error, stackTrace);
       return LocalCacheService.instance.getCachedProfile();
     }
   }

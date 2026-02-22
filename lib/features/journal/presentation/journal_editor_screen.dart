@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
+import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../data/models/user_habit.dart';
 import '../../../providers/app_providers.dart';
@@ -132,7 +133,8 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
       await controller.addEntry(entry);
       if (!mounted) return;
       Navigator.of(context).pop();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      AppLogger.error('journal.createEntry', error, stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),

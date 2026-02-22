@@ -1,28 +1,44 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
 import 'app/bootstrap.dart';
 import 'core/utils/app_logger.dart';
+import 'core/utils/app_provider_observer.dart';
 
 Future<void> main() async {
-  AppLogger.info('App starting');
-  await AppBootstrap.initialize();
-  AppLogger.info('App bootstrap complete');
+  runZonedGuarded(() async {
+    AppLogger.info('App starting');
+    await AppBootstrap.initialize();
+    AppLogger.info('App bootstrap complete');
 
-  FlutterError.onError = (details) {
-    FlutterError.presentError(details);
-    AppLogger.error('FlutterError.onError', details.exception, details.stack);
-  };
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      AppLogger.error(
+        'FlutterError.onError',
+        details.exception,
+        details.stack,
+      );
+    };
 
-  ErrorWidget.builder = (details) {
-    AppLogger.error(
-      'ErrorWidget.builder',
-      details.exception,
-      details.stack,
+    ErrorWidget.builder = (details) {
+      AppLogger.error(
+        'ErrorWidget.builder',
+        details.exception,
+        details.stack,
+      );
+      return const SizedBox.shrink();
+    };
+
+    runApp(
+      ProviderScope(
+        observers: <ProviderObserver>[AppProviderObserver()],
+        child: const BeSoberApp(),
+      ),
     );
-    return const SizedBox.shrink();
-  };
-
-  runApp(const ProviderScope(child: BeSoberApp()));
+  }, (error, stackTrace) {
+    AppLogger.error('zone', error, stackTrace);
+  });
 }

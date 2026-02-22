@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/anonymous_name.dart';
+import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/group_checkin.dart';
 import '../../../providers/app_providers.dart';
@@ -385,7 +386,8 @@ class _CheckinPanelState extends ConsumerState<_CheckinPanel> {
             groupId: widget.groupId,
             note: (note ?? '').trim().isEmpty ? null : note,
           );
-    } catch (error) {
+    } catch (error, stackTrace) {
+      AppLogger.error('groups.checkin', error, stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),
