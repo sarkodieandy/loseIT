@@ -5,9 +5,12 @@ import 'package:lottie/lottie.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/insights_engine.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../data/models/user_habit.dart';
 import '../../../data/models/journal_entry.dart';
+import '../../../data/models/mood_log.dart';
+import '../../../data/models/relapse_log.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/habit_selection_provider.dart';
@@ -27,6 +30,8 @@ class DashboardScreen extends ConsumerWidget {
     final promptsAsync = ref.watch(promptsProvider(isPremium));
     final journalAsync = ref.watch(journalControllerProvider);
     final milestonesAsync = ref.watch(customMilestonesProvider);
+    final moodsAsync = ref.watch(moodLogsProvider);
+    final relapsesAsync = ref.watch(relapseLogsProvider);
 
     return profileAsync.when(
       data: (profile) {
@@ -75,7 +80,27 @@ class DashboardScreen extends ConsumerWidget {
           selectedHabitId,
         );
         final memory = _findOnThisDay(journalAsync.value ?? const []);
-        final weeklyEntries = _countWeeklyEntries(journalAsync.value ?? const []);
+
+        final journalEntries = journalAsync.value ?? const <JournalEntry>[];
+        final moodLogs = moodsAsync.asData?.value ?? const <MoodLog>[];
+        final relapseLogs = relapsesAsync.asData?.value ?? const <RelapseLog>[];
+        final weeklyReport = InsightsEngine.buildWeeklyReport(
+          now: now,
+          journal: journalEntries,
+          moods: moodLogs,
+          relapses: relapseLogs,
+          dailySpend: dailySpend,
+          dailyMinutes: dailyMinutes,
+          habitId: selectedHabitId,
+        );
+        final risk = InsightsEngine.buildRiskForecast(
+          now: now,
+          soberStart: habitStart,
+          journal: journalEntries,
+          moods: moodLogs,
+          relapses: relapseLogs,
+          habitId: selectedHabitId,
+        );
 
         return Scaffold(
           appBar: AppBar(
@@ -189,6 +214,53 @@ class DashboardScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               SectionCard(
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Risk forecast',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            switch (risk.level) {
+                              RiskLevel.low => 'Low risk right now. Keep your routine steady.',
+                              RiskLevel.medium => 'Medium risk. Stay intentional for the next few hours.',
+                              RiskLevel.high => 'High risk window. Keep support close and reduce triggers.',
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(999),
+                            child: LinearProgressIndicator(
+                              minHeight: 10,
+                              value: (risk.score / 100).clamp(0.0, 1.0),
+                              color: risk.level == RiskLevel.high
+                                  ? Colors.red
+                                  : risk.level == RiskLevel.medium
+                                      ? Colors.orange
+                                      : Colors.green,
+                              backgroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    TextButton(
+                      onPressed: () => context.push('/insights'),
+                      child: const Text('Details'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SectionCard(
                 child: promptsAsync.when(
                   data: (prompts) {
                     final prompt = prompts.isEmpty
@@ -287,7 +359,31 @@ class DashboardScreen extends ConsumerWidget {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
-                    Text('Journal entries this week: $weeklyEntries'),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: <Widget>[
+                        _MiniStat(label: 'Journal', value: weeklyReport.journalCount.toString()),
+                        _MiniStat(label: 'Moods', value: weeklyReport.moodCount.toString()),
+                        _MiniStat(label: 'Relapses', value: weeklyReport.relapseCount.toString()),
+                        _MiniStat(label: 'Saved', value: Formatters.formatMoney(weeklyReport.moneySaved)),
+                      ],
+                    ),
+                    if (weeklyReport.highlights.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        weeklyReport.highlights.first,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => context.push('/insights'),
+                        child: const Text('View insights'),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -536,6 +632,42 @@ class _MoodChip extends ConsumerWidget {
   }
 }
 
+class _MiniStat extends StatelessWidget {
+  const _MiniStat({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            '$label ',
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 int _computeJournalStreak(List<dynamic> entries, String? habitId) {
   final byDate = <DateTime>{};
   for (final entry in entries) {
@@ -567,15 +699,4 @@ JournalEntry? _findOnThisDay(List<dynamic> entries) {
     }
   }
   return null;
-}
-
-int _countWeeklyEntries(List<dynamic> entries) {
-  final now = DateTime.now();
-  final cutoff = now.subtract(const Duration(days: 7));
-  var count = 0;
-  for (final entry in entries) {
-    if (entry is! JournalEntry) continue;
-    if (entry.entryDate.isAfter(cutoff)) count += 1;
-  }
-  return count;
 }
