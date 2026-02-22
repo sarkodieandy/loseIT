@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/app_logger.dart';
@@ -100,8 +101,11 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     final profileController = ref.read(profileControllerProvider.notifier);
 
     try {
-      final existingSession = ref.read(sessionProvider);
-      final user = existingSession?.user ??
+      // Avoid racing Riverpod auth providers right after an email sign-in.
+      // Supabase updates `auth.currentUser` immediately, while `sessionProvider`
+      // may lag by a frame.
+      final user =
+          Supabase.instance.client.auth.currentUser ??
           (await authRepo.signInAnonymously()).user;
       if (user == null) {
         throw Exception('Unable to create session.');
