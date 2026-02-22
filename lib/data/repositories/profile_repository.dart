@@ -46,13 +46,15 @@ class ProfileRepository {
     } on PostgrestException catch (error, stackTrace) {
       // Resilience for schemas that don't have `alias` in profiles.
       if (error.message.contains('column \"alias\"')) {
-        final fallbackPayload = Map<String, dynamic>.from(payload)..remove('alias');
+        final fallbackPayload = Map<String, dynamic>.from(payload)
+          ..remove('alias');
         final inserted = await _client
             .from('profiles')
             .insert(fallbackPayload)
             .select()
             .single();
-        final created = UserProfile.fromJson(Map<String, dynamic>.from(inserted));
+        final created =
+            UserProfile.fromJson(Map<String, dynamic>.from(inserted));
         await LocalCacheService.instance.cacheProfile(created);
         return created;
       }
@@ -69,13 +71,15 @@ class ProfileRepository {
       ..['updated_at'] = DateTime.now().toUtc().toIso8601String()
       ..putIfAbsent('alias', () => anonymousNameFor(profile.id));
     try {
-      final row = await _client.from('profiles').upsert(payload).select().single();
+      final row =
+          await _client.from('profiles').upsert(payload).select().single();
       final updated = UserProfile.fromJson(Map<String, dynamic>.from(row));
       await LocalCacheService.instance.cacheProfile(updated);
       return updated;
     } on PostgrestException catch (error, stackTrace) {
       if (error.message.contains('column \"alias\"')) {
-        final fallbackPayload = Map<String, dynamic>.from(payload)..remove('alias');
+        final fallbackPayload = Map<String, dynamic>.from(payload)
+          ..remove('alias');
         final row = await _client
             .from('profiles')
             .upsert(fallbackPayload)
@@ -93,9 +97,11 @@ class ProfileRepository {
     }
   }
 
-  Future<String> uploadMotivationPhoto(File file, {required String userId}) async {
+  Future<String> uploadMotivationPhoto(File file,
+      {required String userId}) async {
     final bucket = 'motivation-photos';
-    final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}';
+    final fileName =
+        '${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}';
     final path = '$userId/$fileName';
     AppLogger.info(
       'Storage upload start bucket=$bucket path=$path size=${file.lengthSync()}',

@@ -734,21 +734,28 @@ class _TribeHeader extends StatelessWidget {
       children: <Widget>[
         Row(
           children: <Widget>[
-            const Text(
-              'Community',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 34,
-                fontWeight: FontWeight.w800,
-                height: 1.1,
+            Expanded(
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 8,
+                children: <Widget>[
+                  const Text(
+                    'Community',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                    ),
+                  ),
+                  const _Pill(
+                    icon: Icons.shield_outlined,
+                    label: 'Anon, safe space',
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 12),
-            _Pill(
-              icon: Icons.shield_outlined,
-              label: 'Anon, safe space',
-            ),
-            const Spacer(),
             _IconCircleButton(
               icon: Icons.search,
               onPressed: onSearch,

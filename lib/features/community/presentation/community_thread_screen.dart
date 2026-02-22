@@ -90,9 +90,13 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
     final postAsync = ref.watch(communityPostProvider(widget.postId));
     final repliesAsync = ref.watch(communityRepliesProvider(widget.postId));
     final media = MediaQuery.of(context);
+    final bottomInset = media.viewInsets.bottom > media.padding.bottom
+        ? media.viewInsets.bottom
+        : media.padding.bottom;
 
     return Scaffold(
       backgroundColor: _ThreadColors.bgTop,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -263,72 +267,69 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                   ),
                 ),
               ),
-              SafeArea(
-                top: false,
-                child: AnimatedPadding(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    8,
-                    16,
-                    8 + media.viewInsets.bottom,
-                  ),
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          textInputAction: TextInputAction.send,
-                          onSubmitted: (_) => _sendReply(),
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText: 'Write a reply…',
-                            hintStyle:
-                                const TextStyle(color: _ThreadColors.muted),
-                            filled: true,
-                            fillColor: _ThreadColors.field,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
+              AnimatedPadding(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  8,
+                  16,
+                  8 + bottomInset,
+                ),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _sendReply(),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Write a reply…',
+                          hintStyle:
+                              const TextStyle(color: _ThreadColors.muted),
+                          filled: true,
+                          fillColor: _ThreadColors.field,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      InkWell(
-                        onTap: _sending ? null : _sendReply,
-                        borderRadius: BorderRadius.circular(18),
-                        child: Ink(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: _ThreadColors.accent,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Center(
-                            child: _sending
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.black,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.send,
+                    ),
+                    const SizedBox(width: 12),
+                    InkWell(
+                      onTap: _sending ? null : _sendReply,
+                      borderRadius: BorderRadius.circular(18),
+                      child: Ink(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: _ThreadColors.accent,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Center(
+                          child: _sending
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
                                     color: Colors.black,
                                   ),
-                          ),
+                                )
+                              : const Icon(
+                                  Icons.send,
+                                  color: Colors.black,
+                                ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],

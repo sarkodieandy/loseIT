@@ -54,9 +54,14 @@ class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
   Widget build(BuildContext context) {
     final messagesAsync =
         ref.watch(supportMessagesProvider(widget.connectionId));
+    final media = MediaQuery.of(context);
+    final bottomInset = media.viewInsets.bottom > media.padding.bottom
+        ? media.viewInsets.bottom
+        : media.padding.bottom;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Support Chat')),
+      resizeToAvoidBottomInset: false,
       body: Column(
         children: <Widget>[
           Expanded(
@@ -83,13 +88,10 @@ class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
               error: (error, _) => Center(child: Text('Failed: $error')),
             ),
           ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              8,
-              16,
-              8 + MediaQuery.of(context).viewInsets.bottom,
-            ),
+          AnimatedPadding(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + bottomInset),
             child: Row(
               children: <Widget>[
                 Expanded(

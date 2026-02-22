@@ -131,11 +131,16 @@ class _DmChatScreenState extends ConsumerState<DmChatScreen> {
         }
         final threadId = snapshot.data!;
         final messagesAsync = ref.watch(dmMessagesProvider(threadId));
+        final media = MediaQuery.of(context);
+        final bottomInset = media.viewInsets.bottom > media.padding.bottom
+            ? media.viewInsets.bottom
+            : media.padding.bottom;
 
         return Scaffold(
           appBar: AppBar(
             title: Text(_resolveTitle(session.user.id)),
           ),
+          resizeToAvoidBottomInset: false,
           body: Column(
             children: <Widget>[
               Expanded(
@@ -180,13 +185,10 @@ class _DmChatScreenState extends ConsumerState<DmChatScreen> {
                   error: (error, _) => Center(child: Text('Failed: $error')),
                 ),
               ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  8,
-                  16,
-                  8 + MediaQuery.of(context).viewInsets.bottom,
-                ),
+              AnimatedPadding(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + bottomInset),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
