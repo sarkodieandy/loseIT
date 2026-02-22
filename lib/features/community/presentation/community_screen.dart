@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/utils/app_motion.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/animated_reveal.dart';
 import '../../../data/models/challenge.dart';
 import '../../../data/models/community_post.dart';
 import '../../../data/models/dm_thread.dart';
@@ -48,6 +51,7 @@ class CommunityScreen extends ConsumerStatefulWidget {
 class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   _TribeTopTab _tab = _TribeTopTab.feed;
   _TribeFilter _filter = _TribeFilter.all;
+  bool _showFab = true;
 
   @override
   Widget build(BuildContext context) {
@@ -57,23 +61,50 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
 
     return Scaffold(
       backgroundColor: _TribeColors.bgTop,
-      floatingActionButton: switch (_tab) {
-        _TribeTopTab.feed => FloatingActionButton(
-            heroTag: 'tribe_post_fab',
-            backgroundColor: _TribeColors.accent,
-            foregroundColor: Colors.black,
-            onPressed: () => context.push('/community/new'),
-            child: const Icon(Icons.add),
+      floatingActionButton: AnimatedScale(
+        scale: _showFab ? 1 : 0.0,
+        duration: AppMotion.fast,
+        curve: Curves.easeOutBack,
+        child: AnimatedOpacity(
+          opacity: _showFab ? 1 : 0,
+          duration: AppMotion.fast,
+          curve: AppMotion.standard,
+          child: AnimatedSwitcher(
+            duration: AppMotion.medium,
+            switchInCurve: AppMotion.emphasized,
+            switchOutCurve: AppMotion.exit,
+            transitionBuilder: (child, animation) {
+              final curved = CurvedAnimation(parent: animation, curve: AppMotion.emphasized);
+              return FadeTransition(
+                opacity: curved,
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.92, end: 1).animate(curved),
+                  child: child,
+                ),
+              );
+            },
+            child: switch (_tab) {
+              _TribeTopTab.feed => FloatingActionButton(
+                  key: const ValueKey('fab_feed'),
+                  heroTag: 'tribe_post_fab',
+                  backgroundColor: _TribeColors.accent,
+                  foregroundColor: Colors.black,
+                  onPressed: () => context.push('/community/new'),
+                  child: const Icon(Icons.add),
+                ),
+              _TribeTopTab.groups => FloatingActionButton(
+                  key: const ValueKey('fab_groups'),
+                  heroTag: 'tribe_group_fab',
+                  backgroundColor: _TribeColors.accent,
+                  foregroundColor: Colors.black,
+                  onPressed: () => context.push('/groups/new'),
+                  child: const Icon(Icons.group_add_outlined),
+                ),
+              _TribeTopTab.messages => const SizedBox.shrink(key: ValueKey('fab_none')),
+            },
           ),
-        _TribeTopTab.groups => FloatingActionButton(
-            heroTag: 'tribe_group_fab',
-            backgroundColor: _TribeColors.accent,
-            foregroundColor: Colors.black,
-            onPressed: () => context.push('/groups/new'),
-            child: const Icon(Icons.group_add_outlined),
-          ),
-        _TribeTopTab.messages => null,
-      },
+        ),
+      ),
       body: Stack(
         children: <Widget>[
           Positioned.fill(
@@ -91,34 +122,58 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             ),
           ),
           SafeArea(
-            child: CustomScrollView(
-              slivers: <Widget>[
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-                    child: _TribeHeader(
-                      onlineCount: onlineCount,
-                      onSearch: () => _showSearch(context),
-                      onFilters: () => _showFilters(context),
+            child: NotificationListener<UserScrollNotification>(
+              onNotification: (notification) {
+                if (notification.direction == ScrollDirection.reverse && _showFab) {
+                  setState(() => _showFab = false);
+                } else if (notification.direction == ScrollDirection.forward &&
+                    !_showFab) {
+                  setState(() => _showFab = true);
+                }
+                return false;
+              },
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: <Widget>[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+                      child: AnimatedReveal(
+                        delay: AppMotion.stagger(0),
+                        child: _TribeHeader(
+                          onlineCount: onlineCount,
+                          onSearch: () => _showSearch(context),
+                          onFilters: () => _showFilters(context),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _TribeTopTabs(
-                      selected: _tab,
-                      onChanged: (value) => setState(() => _tab = value),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: AnimatedReveal(
+                        delay: AppMotion.stagger(1),
+                        child: _TribeTopTabs(
+                          selected: _tab,
+                          onChanged: (value) {
+                            HapticFeedback.selectionClick();
+                            setState(() {
+                              _tab = value;
+                              _showFab = true;
+                            });
+                          },
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                if (_tab == _TribeTopTab.feed) ..._buildFeedSlivers(session),
-                if (_tab == _TribeTopTab.groups) ..._buildGroupsSlivers(),
-                if (_tab == _TribeTopTab.messages)
-                  ..._buildMessagesSlivers(session),
-                const SliverToBoxAdapter(child: SizedBox(height: 90)),
-              ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                  if (_tab == _TribeTopTab.feed) ..._buildFeedSlivers(session),
+                  if (_tab == _TribeTopTab.groups) ..._buildGroupsSlivers(),
+                  if (_tab == _TribeTopTab.messages)
+                    ..._buildMessagesSlivers(session),
+                  const SliverToBoxAdapter(child: SizedBox(height: 90)),
+                ],
+              ),
             ),
           ),
         ],
@@ -158,9 +213,17 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
-          child: _TribeFilters(
-            selected: _filter,
-            onChanged: (value) => setState(() => _filter = value),
+          child: AnimatedReveal(
+            key: ValueKey('tribe_filters_${_filter.name}'),
+            delay: AppMotion.stagger(2),
+            duration: AppMotion.medium,
+            child: _TribeFilters(
+              selected: _filter,
+              onChanged: (value) {
+                HapticFeedback.selectionClick();
+                setState(() => _filter = value);
+              },
+            ),
           ),
         ),
       ),
@@ -194,10 +257,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: _TribeHighlightCard(
-              title: '${todayWins.toString()} Wins Today',
-              subtitle: 'The community is staying strong.',
-              icon: Icons.emoji_events_outlined,
+            child: AnimatedReveal(
+              key: ValueKey('tribe_wins_$todayWins'),
+              delay: AppMotion.stagger(3),
+              duration: AppMotion.medium,
+              child: _TribeHighlightCard(
+                title: '${todayWins.toString()} Wins Today',
+                subtitle: 'The community is staying strong.',
+                icon: Icons.emoji_events_outlined,
+              ),
             ),
           ),
         ),
@@ -222,29 +290,34 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             sliver: SliverList.separated(
               itemBuilder: (context, index) {
                 final post = posts[index];
-                return _TribePostCard(
-                  post: post,
-                  isSelf: session?.user.id == post.userId,
-                  onOpenThread: () => context.push('/community/${post.id}'),
-                  onLike: () async {
-                    await ref
-                        .read(communityRepositoryProvider)
-                        .likePost(post.id, post.likes);
-                  },
-                  onSendSupport: () {
-                    if (session?.user.id == post.userId) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('You cannot message yourself.'),
-                        ),
+                return AnimatedReveal(
+                  key: ValueKey('post_${post.id}'),
+                  delay: AppMotion.stagger(index, stepMs: 38, maxSteps: 8),
+                  duration: AppMotion.medium,
+                  child: _TribePostCard(
+                    post: post,
+                    isSelf: session?.user.id == post.userId,
+                    onOpenThread: () => context.push('/community/${post.id}'),
+                    onLike: () async {
+                      await ref
+                          .read(communityRepositoryProvider)
+                          .likePost(post.id, post.likes);
+                    },
+                    onSendSupport: () {
+                      if (session?.user.id == post.userId) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('You cannot message yourself.'),
+                          ),
+                        );
+                        return;
+                      }
+                      context.push(
+                        '/dm/user/${post.userId}',
+                        extra: post.anonymousName,
                       );
-                      return;
-                    }
-                    context.push(
-                      '/dm/user/${post.userId}',
-                      extra: post.anonymousName,
-                    );
-                  },
+                    },
+                  ),
                 );
               },
               separatorBuilder: (_, __) => const SizedBox(height: 14),
@@ -293,9 +366,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 scrollDirection: Axis.horizontal,
-                itemBuilder: (context, index) => _TribeGroupCard(
-                  challenge: challenges[index],
-                  onTap: () => context.push('/groups/${challenges[index].id}'),
+                itemBuilder: (context, index) => AnimatedReveal(
+                  key: ValueKey('group_card_${challenges[index].id}'),
+                  delay: AppMotion.stagger(index, stepMs: 38, maxSteps: 8),
+                  duration: AppMotion.medium,
+                  beginOffset: const Offset(0.10, 0),
+                  child: _TribeGroupCard(
+                    challenge: challenges[index],
+                    onTap: () => context.push('/groups/${challenges[index].id}'),
+                  ),
                 ),
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemCount: count,
@@ -329,10 +408,13 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             return SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _TribeSupportCard(
-                  title: 'Add a support buddy',
-                  subtitle: 'Invite someone you trust to message you here.',
-                  onTap: () => context.push('/support'),
+                child: AnimatedReveal(
+                  delay: AppMotion.stagger(2),
+                  child: _TribeSupportCard(
+                    title: 'Add a support buddy',
+                    subtitle: 'Invite someone you trust to message you here.',
+                    onTap: () => context.push('/support'),
+                  ),
                 ),
               ),
             );
@@ -341,12 +423,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           return SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _TribeSupportCard(
-                title: first.contactName ?? 'Support session',
-                subtitle: (first.relationship?.trim().isEmpty ?? true)
-                    ? 'Leave a note'
-                    : first.relationship!,
-                onTap: () => context.push('/support/${first.id}'),
+              child: AnimatedReveal(
+                delay: AppMotion.stagger(2),
+                child: _TribeSupportCard(
+                  title: first.contactName ?? 'Support session',
+                  subtitle: (first.relationship?.trim().isEmpty ?? true)
+                      ? 'Leave a note'
+                      : first.relationship!,
+                  onTap: () => context.push('/support/${first.id}'),
+                ),
               ),
             ),
           );
@@ -365,10 +450,14 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-          child: _SectionHeader(
-            title: 'Groups',
-            action: 'See all',
-            onTap: () => context.push('/challenges'),
+          child: AnimatedReveal(
+            delay: AppMotion.stagger(2),
+            duration: AppMotion.medium,
+            child: _SectionHeader(
+              title: 'Groups',
+              action: 'See all',
+              onTap: () => context.push('/challenges'),
+            ),
           ),
         ),
       ),
@@ -395,21 +484,26 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                 final challenge = challenges[index];
                 final isJoined =
                     joined.any((item) => item.challengeId == challenge.id);
-                return _TribeGroupRow(
-                  challenge: challenge,
-                  joined: isJoined,
-                  onTap: () => context.push('/groups/${challenge.id}'),
-                  onJoin: () async {
-                    if (isJoined) {
-                      context.push('/groups/${challenge.id}');
-                      return;
-                    }
-                    await ref
-                        .read(challengesRepositoryProvider)
-                        .startChallenge(challenge.id);
-                    ref.invalidate(userChallengesProvider);
-                    ref.invalidate(challengesProvider);
-                  },
+                return AnimatedReveal(
+                  key: ValueKey('group_row_${challenge.id}'),
+                  delay: AppMotion.stagger(index, stepMs: 32, maxSteps: 8),
+                  duration: AppMotion.medium,
+                  child: _TribeGroupRow(
+                    challenge: challenge,
+                    joined: isJoined,
+                    onTap: () => context.push('/groups/${challenge.id}'),
+                    onJoin: () async {
+                      if (isJoined) {
+                        context.push('/groups/${challenge.id}');
+                        return;
+                      }
+                      await ref
+                          .read(challengesRepositoryProvider)
+                          .startChallenge(challenge.id);
+                      ref.invalidate(userChallengesProvider);
+                      ref.invalidate(challengesProvider);
+                    },
+                  ),
                 );
               },
               separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -454,10 +548,14 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-          child: _SectionHeader(
-            title: 'Messages',
-            action: 'Inbox',
-            onTap: () => context.push('/dm'),
+          child: AnimatedReveal(
+            delay: AppMotion.stagger(2),
+            duration: AppMotion.medium,
+            child: _SectionHeader(
+              title: 'Messages',
+              action: 'Inbox',
+              onTap: () => context.push('/dm'),
+            ),
           ),
         ),
       ),
@@ -479,12 +577,17 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             sliver: SliverList.separated(
               itemBuilder: (context, index) {
                 final thread = threads[index];
-                return _TribeThreadRow(
-                  thread: thread,
-                  myUserId: session.user.id,
-                  onTap: (otherAlias) => context.push(
-                    '/dm/thread/${thread.id}',
-                    extra: otherAlias,
+                return AnimatedReveal(
+                  key: ValueKey('thread_${thread.id}'),
+                  delay: AppMotion.stagger(index, stepMs: 30, maxSteps: 10),
+                  duration: AppMotion.medium,
+                  child: _TribeThreadRow(
+                    thread: thread,
+                    myUserId: session.user.id,
+                    onTap: (otherAlias) => context.push(
+                      '/dm/thread/${thread.id}',
+                      extra: otherAlias,
+                    ),
                   ),
                 );
               },
@@ -687,14 +790,7 @@ class _OnlineNow extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        Container(
-          width: 10,
-          height: 10,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: _TribeColors.green,
-          ),
-        ),
+        const _PulseDot(color: _TribeColors.green),
         const SizedBox(width: 8),
         Text(
           '$count online\nnow',
@@ -707,6 +803,63 @@ class _OnlineNow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PulseDot extends StatefulWidget {
+  const _PulseDot({required this.color});
+
+  final Color color;
+
+  @override
+  State<_PulseDot> createState() => _PulseDotState();
+}
+
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final anim = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+
+    return SizedBox(
+      width: 12,
+      height: 12,
+      child: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          FadeTransition(
+            opacity: Tween<double>(begin: 0.45, end: 0).animate(anim),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 1, end: 2.6).animate(anim),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.color,
+                ),
+              ),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: widget.color,
+            ),
+            child: const SizedBox(width: 10, height: 10),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -831,25 +984,30 @@ class _TabItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        decoration: BoxDecoration(
-          color: selected ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(999),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Center(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: selected ? Colors.white : _TribeColors.muted,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
+      child: AnimatedScale(
+        scale: selected ? 1 : 0.985,
+        duration: AppMotion.fast,
+        curve: AppMotion.emphasized,
+        child: AnimatedContainer(
+          duration: AppMotion.medium,
+          curve: AppMotion.emphasized,
+          decoration: BoxDecoration(
+            color: selected ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(999),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Center(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: selected ? Colors.white : _TribeColors.muted,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ),
@@ -913,26 +1071,31 @@ class _ChoicePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? _TribeColors.accent : _TribeColors.chip,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: selected ? Colors.transparent : _TribeColors.cardBorder,
+    return AnimatedScale(
+      scale: selected ? 1 : 0.985,
+      duration: AppMotion.fast,
+      curve: AppMotion.emphasized,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          curve: AppMotion.emphasized,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? _TribeColors.accent : _TribeColors.chip,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? Colors.transparent : _TribeColors.cardBorder,
+            ),
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.black : _TribeColors.muted,
-            fontWeight: FontWeight.w800,
-            fontSize: 14,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.black : _TribeColors.muted,
+              fontWeight: FontWeight.w800,
+              fontSize: 14,
+            ),
           ),
         ),
       ),
