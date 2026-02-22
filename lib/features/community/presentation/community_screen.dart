@@ -57,6 +57,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider);
+    final isPremium = ref.watch(premiumControllerProvider);
     final onlineCountAsync = ref.watch(communityOnlineCountProvider);
     final onlineCount = onlineCountAsync.asData?.value;
 
@@ -99,7 +100,13 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                   heroTag: 'tribe_group_fab',
                   backgroundColor: _TribeColors.accent,
                   foregroundColor: Colors.black,
-                  onPressed: () => context.push('/groups/new'),
+                  onPressed: () {
+                    if (!isPremium) {
+                      context.push('/paywall');
+                      return;
+                    }
+                    context.push('/groups/new');
+                  },
                   child: const Icon(Icons.group_add_outlined),
                 ),
               _TribeTopTab.messages =>
