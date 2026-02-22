@@ -9,6 +9,7 @@ import '../features/community/presentation/community_thread_screen.dart';
 import '../features/community/presentation/create_group_screen.dart';
 import '../features/community/presentation/create_post_screen.dart';
 import '../features/community/presentation/group_detail_screen.dart';
+import '../features/community/presentation/group_chat_screen.dart';
 import '../features/challenges/presentation/challenges_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/dm/presentation/dm_chat_screen.dart';
@@ -145,6 +146,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           return GroupDetailScreen(groupId: id);
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/groups/:id/chat',
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return GroupChatScreen(groupId: id);
         },
       ),
       GoRoute(

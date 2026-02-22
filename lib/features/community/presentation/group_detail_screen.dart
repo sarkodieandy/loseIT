@@ -129,6 +129,34 @@ class GroupDetailScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 14),
+                  _Card(
+                    child: Row(
+                      children: <Widget>[
+                        const Icon(Icons.chat_bubble_outline, color: _GroupColors.muted),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Group chat',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => context.push('/groups/$groupId/chat'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: _GroupColors.accent,
+                          ),
+                          child: const Text('Open'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _ChatPreview(groupId: groupId),
+                  const SizedBox(height: 18),
                   if (session == null)
                     const _Card(
                       child: Text(
@@ -224,6 +252,90 @@ class GroupDetailScreen extends ConsumerWidget {
           'Run `supabase/schema.sql` in Supabase SQL Editor to create `group_checkins` and policies.';
     }
     return 'Failed: $message';
+  }
+}
+
+class _ChatPreview extends ConsumerWidget {
+  const _ChatPreview({required this.groupId});
+
+  final String groupId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final messagesAsync = ref.watch(groupMessagesProvider(groupId));
+
+    return messagesAsync.when(
+      data: (messages) {
+        if (messages.isEmpty) {
+          return const _Card(
+            child: Text(
+              'No messages yet. Start the conversation.',
+              style: TextStyle(color: _GroupColors.muted),
+            ),
+          );
+        }
+
+        final recent = messages.take(3).toList(growable: false);
+        return _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Text(
+                'Recent messages',
+                style: TextStyle(
+                  color: _GroupColors.muted,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ...recent.map((m) {
+                final alias = anonymousNameFor(m.senderId);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: <Widget>[
+                      _Avatar(seed: m.senderId),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              alias,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              m.content,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: _GroupColors.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        Formatters.timeAgo(m.createdAt),
+                        style: const TextStyle(
+                          color: _GroupColors.muted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
   }
 }
 
@@ -612,4 +724,3 @@ class _Pill extends StatelessWidget {
     );
   }
 }
-

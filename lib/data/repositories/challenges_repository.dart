@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/utils/app_logger.dart';
 import '../models/challenge.dart';
 import '../models/group_checkin.dart';
+import '../models/group_message.dart';
 import '../models/user_challenge.dart';
 
 class ChallengesRepository {
@@ -255,6 +256,53 @@ class ChallengesRepository {
       rethrow;
     } catch (error, stackTrace) {
       AppLogger.error('groups.checkin', error, stackTrace);
+      rethrow;
+    }
+  }
+
+  Stream<List<GroupMessage>> streamGroupMessages(String groupId) {
+    return _client
+        .from('group_messages')
+        .stream(primaryKey: ['id'])
+        .eq('group_id', groupId)
+        .order('created_at', ascending: false)
+        .limit(300)
+        .map(
+          (rows) => rows
+              .map((row) => GroupMessage.fromJson(
+                    Map<String, dynamic>.from(row as Map),
+                  ))
+              .toList(growable: false),
+        );
+  }
+
+  Future<GroupMessage> sendGroupMessage({
+    required String groupId,
+    required String content,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw const AuthException('Not authenticated');
+
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) {
+      throw Exception('Message is empty.');
+    }
+
+    final payload = <String, dynamic>{
+      'group_id': groupId,
+      'sender_id': user.id,
+      'content': trimmed,
+    };
+
+    try {
+      final row =
+          await _client.from('group_messages').insert(payload).select().single();
+      return GroupMessage.fromJson(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error, stackTrace) {
+      AppLogger.error('groups.sendMessage', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('groups.sendMessage', error, stackTrace);
       rethrow;
     }
   }

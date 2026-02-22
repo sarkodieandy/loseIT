@@ -11,6 +11,7 @@ import '../data/models/user_habit.dart';
 import '../data/models/mood_log.dart';
 import '../data/models/challenge.dart';
 import '../data/models/group_checkin.dart';
+import '../data/models/group_message.dart';
 import '../data/models/user_challenge.dart';
 import '../data/models/badge.dart';
 import '../data/models/user_badge.dart';
@@ -150,6 +151,12 @@ final groupCheckinsProvider =
     StreamProvider.family<List<GroupCheckin>, String>((ref, groupId) {
   final repository = ref.watch(challengesRepositoryProvider);
   return repository.streamGroupCheckins(groupId);
+});
+
+final groupMessagesProvider =
+    StreamProvider.family<List<GroupMessage>, String>((ref, groupId) {
+  final repository = ref.watch(challengesRepositoryProvider);
+  return repository.streamGroupMessages(groupId);
 });
 
 final badgesProvider = FutureProvider<List<Badge>>((ref) {

@@ -333,6 +333,15 @@ create table if not exists public.group_checkins (
 create unique index if not exists idx_group_checkins_unique
   on public.group_checkins (group_id, user_id, checkin_date);
 
+-- Group chat messages (members-only).
+create table if not exists public.group_messages (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.challenges (id) on delete cascade,
+  sender_id uuid not null references public.profiles (id) on delete cascade,
+  content text not null,
+  created_at timestamptz not null default now()
+);
+
 alter table public.challenges
   add column if not exists member_count integer not null default 0;
 
@@ -459,6 +468,7 @@ alter table public.urge_logs enable row level security;
 alter table public.challenges enable row level security;
 alter table public.user_challenges enable row level security;
 alter table public.group_checkins enable row level security;
+alter table public.group_messages enable row level security;
 alter table public.badges enable row level security;
 alter table public.user_badges enable row level security;
 alter table public.daily_prompts enable row level security;
@@ -792,6 +802,42 @@ for delete
 to authenticated
 using (auth.uid() = user_id);
 
+drop policy if exists group_messages_select_member on public.group_messages;
+create policy group_messages_select_member
+on public.group_messages
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.user_challenges uc
+    where uc.challenge_id = group_id
+      and uc.user_id = auth.uid()
+  )
+);
+
+drop policy if exists group_messages_insert_member on public.group_messages;
+create policy group_messages_insert_member
+on public.group_messages
+for insert
+to authenticated
+with check (
+  sender_id = auth.uid()
+  and exists (
+    select 1
+    from public.user_challenges uc
+    where uc.challenge_id = group_id
+      and uc.user_id = auth.uid()
+  )
+);
+
+drop policy if exists group_messages_delete_own on public.group_messages;
+create policy group_messages_delete_own
+on public.group_messages
+for delete
+to authenticated
+using (sender_id = auth.uid());
+
 drop policy if exists badges_select on public.badges;
 create policy badges_select
 on public.badges
@@ -984,6 +1030,9 @@ create index if not exists idx_user_challenges_user
 
 create index if not exists idx_group_checkins_group_date
   on public.group_checkins (group_id, checkin_date desc);
+
+create index if not exists idx_group_messages_group_date
+  on public.group_messages (group_id, created_at asc);
 
 create index if not exists idx_user_badges_user
   on public.user_badges (user_id, earned_at desc);
