@@ -35,8 +35,14 @@ class ProfileRepository {
   }
 
   Future<UserProfile> createProfile(UserProfile profile) async {
-    final payload = Map<String, dynamic>.from(profile.toJson())
-      ..putIfAbsent('alias', () => anonymousNameFor(profile.id));
+    final payload = Map<String, dynamic>.from(profile.toJson());
+    final existingAlias = (payload['alias'] as String?)?.trim();
+    final alias =
+        (existingAlias == null || existingAlias.isEmpty)
+            ? anonymousNameFor(profile.id)
+            : existingAlias;
+    payload['alias'] = alias;
+    AppLogger.info('Profile create userId=${profile.id} alias=$alias');
     try {
       final inserted =
           await _client.from('profiles').insert(payload).select().single();
@@ -68,8 +74,14 @@ class ProfileRepository {
 
   Future<UserProfile> upsertProfile(UserProfile profile) async {
     final payload = profile.toJson()
-      ..['updated_at'] = DateTime.now().toUtc().toIso8601String()
-      ..putIfAbsent('alias', () => anonymousNameFor(profile.id));
+      ..['updated_at'] = DateTime.now().toUtc().toIso8601String();
+    final existingAlias = (payload['alias'] as String?)?.trim();
+    final alias =
+        (existingAlias == null || existingAlias.isEmpty)
+            ? anonymousNameFor(profile.id)
+            : existingAlias;
+    payload['alias'] = alias;
+    AppLogger.info('Profile upsert userId=${profile.id} alias=$alias');
     try {
       final row =
           await _client.from('profiles').upsert(payload).select().single();
