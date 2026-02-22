@@ -57,15 +57,23 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
 
     return Scaffold(
       backgroundColor: _TribeColors.bgTop,
-      floatingActionButton: _tab == _TribeTopTab.feed
-          ? FloatingActionButton(
-              heroTag: 'tribe_fab',
-              backgroundColor: _TribeColors.accent,
-              foregroundColor: Colors.black,
-              onPressed: () => context.push('/community/new'),
-              child: const Icon(Icons.add),
-            )
-          : null,
+      floatingActionButton: switch (_tab) {
+        _TribeTopTab.feed => FloatingActionButton(
+            heroTag: 'tribe_post_fab',
+            backgroundColor: _TribeColors.accent,
+            foregroundColor: Colors.black,
+            onPressed: () => context.push('/community/new'),
+            child: const Icon(Icons.add),
+          ),
+        _TribeTopTab.groups => FloatingActionButton(
+            heroTag: 'tribe_group_fab',
+            backgroundColor: _TribeColors.accent,
+            foregroundColor: Colors.black,
+            onPressed: () => context.push('/groups/new'),
+            child: const Icon(Icons.group_add_outlined),
+          ),
+        _TribeTopTab.messages => null,
+      },
       body: Stack(
         children: <Widget>[
           Positioned.fill(

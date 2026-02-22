@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../features/analytics/presentation/analytics_screen.dart';
 import '../features/community/presentation/community_screen.dart';
 import '../features/community/presentation/community_thread_screen.dart';
+import '../features/community/presentation/create_group_screen.dart';
 import '../features/community/presentation/create_post_screen.dart';
 import '../features/challenges/presentation/challenges_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
@@ -129,6 +130,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         path: '/community/new',
         builder: (context, state) => const CreatePostScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/groups/new',
+        builder: (context, state) => const CreateGroupScreen(),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,

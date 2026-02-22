@@ -11,19 +11,37 @@ class CommunityRepository {
 
   Stream<List<CommunityPost>> streamFeed({String? category}) {
     final normalized = category?.trim().toLowerCase();
-    final base = _client.from('community_posts').stream(primaryKey: ['id']);
-    final query = (normalized != null &&
-            normalized.isNotEmpty &&
-            normalized != 'all')
-        ? base.eq('category', normalized)
-        : base;
+    final base = _client
+        .from('community_posts')
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
+        .limit(100);
 
-    return query.order('created_at', ascending: false).map((rows) => rows
-        .take(100)
-        .map((row) => CommunityPost.fromJson(
-              Map<String, dynamic>.from(row as Map),
-            ))
-        .toList(growable: false));
+    // Prefer server-side filtering when the schema supports it, but keep the
+    // app resilient if `category` isn't present yet in the user's DB.
+    return base
+        .map((rows) => rows
+            .map((row) => CommunityPost.fromJson(
+                  Map<String, dynamic>.from(row as Map),
+                ))
+            .toList(growable: false))
+        .map((posts) {
+      if (normalized == null || normalized.isEmpty || normalized == 'all') {
+        return posts;
+      }
+
+      final hasAnyCategory =
+          posts.any((p) => (p.category ?? '').trim().isNotEmpty);
+      if (!hasAnyCategory) {
+        return posts;
+      }
+
+      return posts
+          .where(
+            (p) => (p.category ?? '').trim().toLowerCase() == normalized,
+          )
+          .toList(growable: false);
+    });
   }
 
   Future<CommunityPost?> fetchPost(String id) async {
@@ -160,6 +178,7 @@ class CommunityRepository {
         .stream(primaryKey: ['id'])
         .eq('post_id', parsedPostId ?? postId)
         .order('created_at')
+        .limit(200)
         .map((rows) => rows
             .map((row) => CommunityReply.fromJson(
                   Map<String, dynamic>.from(row as Map),

@@ -7,6 +7,9 @@ class Challenge {
     this.badgeImageUrl,
     this.memberCount = 0,
     this.isActive = true,
+    this.kind = 'group',
+    this.createdBy,
+    this.createdAt,
   });
 
   final String id;
@@ -16,6 +19,9 @@ class Challenge {
   final String? badgeImageUrl;
   final int memberCount;
   final bool isActive;
+  final String kind;
+  final String? createdBy;
+  final DateTime? createdAt;
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -26,10 +32,21 @@ class Challenge {
       'badge_image_url': badgeImageUrl,
       'member_count': memberCount,
       'is_active': isActive,
+      'kind': kind,
+      'created_by': createdBy,
+      if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
     };
   }
 
   factory Challenge.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic value) {
+      if (value is DateTime) return value;
+      if (value is String && value.isNotEmpty) {
+        return DateTime.parse(value).toLocal();
+      }
+      return null;
+    }
+
     return Challenge(
       id: json['id'].toString(),
       title: (json['title'] as String?) ?? 'Challenge',
@@ -38,6 +55,9 @@ class Challenge {
       badgeImageUrl: json['badge_image_url'] as String?,
       memberCount: (json['member_count'] as num?)?.toInt() ?? 0,
       isActive: (json['is_active'] as bool?) ?? true,
+      kind: (json['kind'] as String?) ?? 'group',
+      createdBy: json['created_by']?.toString(),
+      createdAt: parseDate(json['created_at']),
     );
   }
 }

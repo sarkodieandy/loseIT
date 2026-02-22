@@ -24,9 +24,6 @@ create table if not exists public.journal_entries (
 );
 
 alter table public.journal_entries
-  add column if not exists habit_id uuid null references public.user_habits (id) on delete set null;
-
-alter table public.journal_entries
   add column if not exists audio_url text null,
   add column if not exists transcript text null;
 
@@ -48,6 +45,11 @@ alter table public.community_posts
 alter table public.community_posts
   add column if not exists alias text,
   add column if not exists message text,
+  -- Legacy compatibility: older tables may have only `alias`/`message`.
+  add column if not exists anonymous_name text,
+  add column if not exists content text,
+  add column if not exists likes integer not null default 0,
+  add column if not exists created_at timestamptz not null default now(),
   add column if not exists category text null,
   add column if not exists topic text null,
   add column if not exists badge text null,
@@ -61,6 +63,15 @@ update public.community_posts
 
 update public.community_posts
   set content = coalesce(content, message)
+  where content is null;
+
+-- Ensure required fields are never NULL before enforcing constraints.
+update public.community_posts
+  set anonymous_name = 'Anon'
+  where anonymous_name is null;
+
+update public.community_posts
+  set content = ''
   where content is null;
 
 alter table public.community_posts
@@ -135,6 +146,9 @@ begin
 end $$;
 
 alter table public.community_replies
+  add column if not exists anonymous_name text,
+  add column if not exists content text,
+  add column if not exists created_at timestamptz not null default now(),
   add column if not exists alias text,
   add column if not exists message text;
 
@@ -144,6 +158,14 @@ update public.community_replies
 
 update public.community_replies
   set content = coalesce(content, message)
+  where content is null;
+
+update public.community_replies
+  set anonymous_name = 'Anon'
+  where anonymous_name is null;
+
+update public.community_replies
+  set content = ''
   where content is null;
 
 alter table public.community_replies
@@ -232,6 +254,10 @@ create table if not exists public.user_habits (
   created_at timestamptz not null default now()
 );
 
+-- `journal_entries.habit_id` references `user_habits`, so add it after the table exists.
+alter table public.journal_entries
+  add column if not exists habit_id uuid null references public.user_habits (id) on delete set null;
+
 create table if not exists public.custom_milestones (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -262,6 +288,12 @@ create table if not exists public.challenges (
   is_active boolean not null default true
 );
 
+-- Community "Groups" are stored in `challenges` for now. Add metadata for creation/ownership.
+alter table public.challenges
+  add column if not exists kind text not null default 'group',
+  add column if not exists created_by uuid null references public.profiles (id) on delete set null,
+  add column if not exists created_at timestamptz not null default now();
+
 create table if not exists public.user_challenges (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -271,6 +303,10 @@ create table if not exists public.user_challenges (
   started_at timestamptz not null default now(),
   completed_at timestamptz null
 );
+
+-- Prevent duplicates so member counts stay correct.
+create unique index if not exists idx_user_challenges_unique
+  on public.user_challenges (user_id, challenge_id);
 
 alter table public.challenges
   add column if not exists member_count integer not null default 0;
@@ -628,6 +664,28 @@ for select
 to authenticated
 using (true);
 
+drop policy if exists challenges_insert_own on public.challenges;
+create policy challenges_insert_own
+on public.challenges
+for insert
+to authenticated
+with check (auth.uid() = created_by);
+
+drop policy if exists challenges_update_own on public.challenges;
+create policy challenges_update_own
+on public.challenges
+for update
+to authenticated
+using (auth.uid() = created_by)
+with check (auth.uid() = created_by);
+
+drop policy if exists challenges_delete_own on public.challenges;
+create policy challenges_delete_own
+on public.challenges
+for delete
+to authenticated
+using (auth.uid() = created_by);
+
 drop policy if exists user_challenges_select_own on public.user_challenges;
 create policy user_challenges_select_own
 on public.user_challenges
@@ -830,6 +888,9 @@ create index if not exists idx_custom_milestones_user
 
 create index if not exists idx_mood_logs_user_date
   on public.mood_logs (user_id, logged_date desc);
+
+create index if not exists idx_challenges_kind_active
+  on public.challenges (kind, is_active, member_count desc, created_at desc);
 
 create index if not exists idx_user_challenges_user
   on public.user_challenges (user_id, started_at desc);
