@@ -38,6 +38,12 @@
 	<string>Allow Be Sober to record voice journal entries.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Allow Be Sober to transcribe your voice journals.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Allow Be Sober to access your local network for development debugging.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dartVmService._tcp</string>
+	</array>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Allow Be Sober to read health data for analytics insights.</string>
 	<key>NSHealthUpdateUsageDescription</key>
@@ -65,3 +71,4 @@
 	<true/>
 </dict>
 </plist>
+
