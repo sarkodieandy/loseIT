@@ -101,7 +101,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
     try {
       final existingSession = ref.read(sessionProvider);
-      final user = existingSession?.user ?? await authRepo.signInAnonymously();
+      final user = existingSession?.user ??
+          (await authRepo.signInAnonymously()).user;
       if (user == null) {
         throw Exception('Unable to create session.');
       }
@@ -207,7 +208,22 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                 controller: _controller,
                 onPageChanged: (index) => setState(() => _pageIndex = index),
                 children: <Widget>[
-                  _WelcomeStep(onNext: _next),
+                  _WelcomeStep(
+                    onNext: _next,
+                    onSignIn: () async {
+                      final authRepo = ref.read(authRepositoryProvider);
+                      final result = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => _EmailAuthDialog(
+                          authRepo: authRepo,
+                          initialIsSignUp: false,
+                        ),
+                      );
+                      if (result == true) {
+                        await _completeOnboarding();
+                      }
+                    },
+                  ),
                   _HabitStep(
                     habits: _habits,
                     habit: _habit,
@@ -252,9 +268,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 }
 
 class _WelcomeStep extends StatefulWidget {
-  const _WelcomeStep({required this.onNext});
+  const _WelcomeStep({
+    required this.onNext,
+    required this.onSignIn,
+  });
 
   final VoidCallback onNext;
+  final Future<void> Function() onSignIn;
 
   @override
   State<_WelcomeStep> createState() => _WelcomeStepState();
@@ -421,6 +441,13 @@ class _WelcomeStepState extends State<_WelcomeStep> {
           ),
           const SizedBox(height: 16),
           PrimaryButton(label: 'Get Started', onPressed: widget.onNext),
+          const SizedBox(height: 10),
+          Center(
+            child: TextButton(
+              onPressed: widget.onSignIn,
+              child: const Text('Already have an account? Sign in'),
+            ),
+          ),
         ],
       ),
     );
@@ -978,9 +1005,13 @@ class _FinishBenefit extends StatelessWidget {
 }
 
 class _EmailAuthDialog extends StatefulWidget {
-  const _EmailAuthDialog({required this.authRepo});
+  const _EmailAuthDialog({
+    required this.authRepo,
+    this.initialIsSignUp = true,
+  });
 
   final AuthRepository authRepo;
+  final bool initialIsSignUp;
 
   @override
   State<_EmailAuthDialog> createState() => _EmailAuthDialogState();
@@ -989,8 +1020,21 @@ class _EmailAuthDialog extends StatefulWidget {
 class _EmailAuthDialogState extends State<_EmailAuthDialog> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isSignUp = true;
+  late bool _isSignUp;
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isSignUp = widget.initialIsSignUp;
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit() async {
     if (_loading) return;
@@ -1005,10 +1049,21 @@ class _EmailAuthDialogState extends State<_EmailAuthDialog> {
     setState(() => _loading = true);
     try {
       if (_isSignUp) {
-        await widget.authRepo.signUpWithEmail(
+        final result = await widget.authRepo.signUpWithEmail(
           email,
           password,
         );
+        if (result.needsEmailConfirmation) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Check your email to confirm your account, then sign in.',
+              ),
+            ),
+          );
+          return;
+        }
       } else {
         await widget.authRepo.signInWithEmail(
           email,
