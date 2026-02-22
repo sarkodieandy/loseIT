@@ -28,6 +28,13 @@ class _DmChatScreenState extends ConsumerState<DmChatScreen> {
   final _controller = TextEditingController();
   bool _sending = false;
   late Future<String> _threadFuture;
+  static const List<String> _nudges = <String>[
+    'You got this.',
+    'Proud of you for showing up.',
+    'Breathe. One minute at a time.',
+    'Stay strong tonight.',
+    'If you slip, don’t disappear. Keep going.',
+  ];
 
   @override
   void initState() {
@@ -73,6 +80,24 @@ class _DmChatScreenState extends ConsumerState<DmChatScreen> {
       if (mounted) {
         setState(() => _sending = false);
       }
+    }
+  }
+
+  Future<void> _sendNudge(String threadId, String text) async {
+    if (_sending) return;
+    setState(() => _sending = true);
+    try {
+      await ref.read(dmRepositoryProvider).sendMessage(
+            threadId: threadId,
+            content: text,
+          );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
     }
   }
 
@@ -159,23 +184,45 @@ class _DmChatScreenState extends ConsumerState<DmChatScreen> {
                   16,
                   8 + MediaQuery.of(context).viewInsets.bottom,
                 ),
-                child: Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _send(threadId),
-                        decoration: const InputDecoration(
-                          hintText: 'Write a message…',
-                          border: OutlineInputBorder(),
-                        ),
+                    SizedBox(
+                      height: 40,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemBuilder: (context, index) {
+                          final text = _nudges[index];
+                          return ActionChip(
+                            label: Text(text),
+                            onPressed:
+                                _sending ? null : () => _sendNudge(threadId, text),
+                          );
+                        },
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemCount: _nudges.length,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      onPressed: _sending ? null : () => _send(threadId),
-                      icon: const Icon(Icons.send),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            textInputAction: TextInputAction.send,
+                            onSubmitted: (_) => _send(threadId),
+                            decoration: const InputDecoration(
+                              hintText: 'Write a message…',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        IconButton(
+                          onPressed: _sending ? null : () => _send(threadId),
+                          icon: const Icon(Icons.send),
+                        ),
+                      ],
                     ),
                   ],
                 ),
