@@ -288,6 +288,10 @@ class ChallengesRepository {
       throw Exception('Message is empty.');
     }
 
+    AppLogger.info(
+      'GroupChat sendMessage groupId=$groupId userId=${user.id} length=${trimmed.length}',
+    );
+
     final payload = <String, dynamic>{
       'group_id': groupId,
       'sender_id': user.id,
@@ -297,6 +301,7 @@ class ChallengesRepository {
     try {
       final row =
           await _client.from('group_messages').insert(payload).select().single();
+      AppLogger.info('GroupChat sendMessage success id=${row['id']}');
       return GroupMessage.fromJson(Map<String, dynamic>.from(row));
     } on PostgrestException catch (error, stackTrace) {
       AppLogger.error('groups.sendMessage', error, stackTrace);
