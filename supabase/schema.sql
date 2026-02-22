@@ -1056,3 +1056,41 @@ drop trigger if exists trg_dm_messages_bump on public.dm_messages;
 create trigger trg_dm_messages_bump
 after insert on public.dm_messages
 for each row execute function public.bump_dm_thread();
+
+-- Realtime (best-effort). Hosted Supabase uses publication `supabase_realtime`.
+-- If you manage realtime via the dashboard, these statements are safe to keep;
+-- they will no-op on errors.
+alter table public.community_posts replica identity full;
+alter table public.community_replies replica identity full;
+alter table public.dm_threads replica identity full;
+alter table public.dm_messages replica identity full;
+alter table public.group_checkins replica identity full;
+alter table public.group_messages replica identity full;
+
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table public.community_posts;
+  exception when others then null;
+  end;
+  begin
+    alter publication supabase_realtime add table public.community_replies;
+  exception when others then null;
+  end;
+  begin
+    alter publication supabase_realtime add table public.dm_threads;
+  exception when others then null;
+  end;
+  begin
+    alter publication supabase_realtime add table public.dm_messages;
+  exception when others then null;
+  end;
+  begin
+    alter publication supabase_realtime add table public.group_checkins;
+  exception when others then null;
+  end;
+  begin
+    alter publication supabase_realtime add table public.group_messages;
+  exception when others then null;
+  end;
+end $$;
