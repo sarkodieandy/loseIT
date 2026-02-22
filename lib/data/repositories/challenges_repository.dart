@@ -2,12 +2,27 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/utils/app_logger.dart';
 import '../models/challenge.dart';
+import '../models/group_checkin.dart';
 import '../models/user_challenge.dart';
 
 class ChallengesRepository {
   ChallengesRepository(this._client);
 
   final SupabaseClient _client;
+
+  Future<Challenge?> fetchGroup(String id) async {
+    try {
+      final row = await _client.from('challenges').select().eq('id', id).maybeSingle();
+      if (row == null) return null;
+      return Challenge.fromJson(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error, stackTrace) {
+      AppLogger.error('groups.fetch', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('groups.fetch', error, stackTrace);
+      rethrow;
+    }
+  }
 
   Future<List<Challenge>> fetchChallenges({String kind = 'group'}) async {
     try {
@@ -198,6 +213,48 @@ class ChallengesRepository {
       rethrow;
     } catch (error, stackTrace) {
       AppLogger.error('groups.leave', error, stackTrace);
+      rethrow;
+    }
+  }
+
+  Stream<List<GroupCheckin>> streamGroupCheckins(String groupId) {
+    return _client
+        .from('group_checkins')
+        .stream(primaryKey: ['id'])
+        .eq('group_id', groupId)
+        .order('created_at', ascending: false)
+        .limit(200)
+        .map(
+          (rows) => rows
+              .map((row) => GroupCheckin.fromJson(
+                    Map<String, dynamic>.from(row as Map),
+                  ))
+              .toList(growable: false),
+        );
+  }
+
+  Future<GroupCheckin> createGroupCheckin({
+    required String groupId,
+    String? note,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw const AuthException('Not authenticated');
+    final trimmed = note?.trim();
+    final payload = <String, dynamic>{
+      'group_id': groupId,
+      'user_id': user.id,
+      if (trimmed != null && trimmed.isNotEmpty) 'note': trimmed,
+    };
+
+    try {
+      final row =
+          await _client.from('group_checkins').insert(payload).select().single();
+      return GroupCheckin.fromJson(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error, stackTrace) {
+      AppLogger.error('groups.checkin', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('groups.checkin', error, stackTrace);
       rethrow;
     }
   }

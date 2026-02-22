@@ -295,7 +295,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                 scrollDirection: Axis.horizontal,
                 itemBuilder: (context, index) => _TribeGroupCard(
                   challenge: challenges[index],
-                  onTap: () => context.push('/challenges'),
+                  onTap: () => context.push('/groups/${challenges[index].id}'),
                 ),
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemCount: count,
@@ -398,15 +398,18 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                 return _TribeGroupRow(
                   challenge: challenge,
                   joined: isJoined,
-                  onJoin: isJoined
-                      ? null
-                      : () async {
-                          await ref
-                              .read(challengesRepositoryProvider)
-                              .startChallenge(challenge.id);
-                          ref.invalidate(userChallengesProvider);
-                          ref.invalidate(challengesProvider);
-                        },
+                  onTap: () => context.push('/groups/${challenge.id}'),
+                  onJoin: () async {
+                    if (isJoined) {
+                      context.push('/groups/${challenge.id}');
+                      return;
+                    }
+                    await ref
+                        .read(challengesRepositoryProvider)
+                        .startChallenge(challenge.id);
+                    ref.invalidate(userChallengesProvider);
+                    ref.invalidate(challengesProvider);
+                  },
                 );
               },
               separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -1452,64 +1455,71 @@ class _TribeGroupRow extends StatelessWidget {
   const _TribeGroupRow({
     required this.challenge,
     required this.joined,
+    required this.onTap,
     required this.onJoin,
   });
 
   final Challenge challenge;
   final bool joined;
+  final VoidCallback onTap;
   final VoidCallback? onJoin;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _TribeColors.card,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _TribeColors.cardBorder),
-      ),
-      child: Row(
-        children: <Widget>[
-          const Icon(Icons.shield_outlined, color: _TribeColors.muted),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  challenge.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _TribeColors.card,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: _TribeColors.cardBorder),
+        ),
+        child: Row(
+          children: <Widget>[
+            const Icon(Icons.shield_outlined, color: _TribeColors.muted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    challenge.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${challenge.memberCount} members',
-                  style: const TextStyle(
-                    color: _TribeColors.muted,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 4),
+                  Text(
+                    '${challenge.memberCount} members',
+                    style: const TextStyle(
+                      color: _TribeColors.muted,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          OutlinedButton(
-            onPressed: onJoin,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: joined ? _TribeColors.muted : _TribeColors.accent,
-              side: BorderSide(
-                color: joined ? _TribeColors.cardBorder : _TribeColors.accent,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(999),
+                ],
               ),
             ),
-            child: Text(joined ? 'Joined' : 'Join'),
-          ),
-        ],
+            const SizedBox(width: 12),
+            OutlinedButton(
+              onPressed: onJoin,
+              style: OutlinedButton.styleFrom(
+                foregroundColor:
+                    joined ? _TribeColors.muted : _TribeColors.accent,
+                side: BorderSide(
+                  color: joined ? _TribeColors.cardBorder : _TribeColors.accent,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              child: Text(joined ? 'Open' : 'Join'),
+            ),
+          ],
+        ),
       ),
     );
   }

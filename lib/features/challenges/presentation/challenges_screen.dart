@@ -41,32 +41,48 @@ class ChallengesScreen extends ConsumerWidget {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: SectionCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            challenge.title,
-                            style: Theme.of(context).textTheme.titleMedium,
+                      child: InkWell(
+                        onTap: () => context.push('/groups/${challenge.id}'),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: Text(
+                                      challenge.title,
+                                      style: Theme.of(context).textTheme.titleMedium,
+                                    ),
+                                  ),
+                                  OutlinedButton(
+                                    onPressed: joined
+                                        ? null
+                                        : () async {
+                                            await ref
+                                                .read(challengesRepositoryProvider)
+                                                .startChallenge(challenge.id);
+                                            ref.invalidate(userChallengesProvider);
+                                            ref.invalidate(challengesProvider);
+                                          },
+                                    child: Text(joined ? 'Joined' : 'Join'),
+                                  ),
+                                ],
+                              ),
+                              if (challenge.description != null &&
+                                  challenge.description!.trim().isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(challenge.description!),
+                              ],
+                              const SizedBox(height: 6),
+                              Text(
+                                '${challenge.memberCount} members',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
                           ),
-                          if (challenge.description != null &&
-                              challenge.description!.trim().isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Text(challenge.description!),
-                          ],
-                          const SizedBox(height: 12),
-                          OutlinedButton(
-                            onPressed: joined
-                                ? null
-                                : () async {
-                                    await ref
-                                        .read(challengesRepositoryProvider)
-                                        .startChallenge(challenge.id);
-                                    ref.invalidate(userChallengesProvider);
-                                    ref.invalidate(challengesProvider);
-                                  },
-                            child: Text(joined ? 'Joined' : 'Join'),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   );

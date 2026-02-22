@@ -10,6 +10,7 @@ import '../data/models/dm_thread.dart';
 import '../data/models/user_habit.dart';
 import '../data/models/mood_log.dart';
 import '../data/models/challenge.dart';
+import '../data/models/group_checkin.dart';
 import '../data/models/user_challenge.dart';
 import '../data/models/badge.dart';
 import '../data/models/user_badge.dart';
@@ -137,6 +138,17 @@ final challengesProvider = FutureProvider<List<Challenge>>((ref) {
 final userChallengesProvider = FutureProvider<List<UserChallenge>>((ref) {
   final repository = ref.watch(challengesRepositoryProvider);
   return repository.fetchUserChallenges();
+});
+
+final groupProvider = FutureProvider.family<Challenge?, String>((ref, groupId) {
+  final repository = ref.watch(challengesRepositoryProvider);
+  return repository.fetchGroup(groupId);
+});
+
+final groupCheckinsProvider =
+    StreamProvider.family<List<GroupCheckin>, String>((ref, groupId) {
+  final repository = ref.watch(challengesRepositoryProvider);
+  return repository.streamGroupCheckins(groupId);
 });
 
 final badgesProvider = FutureProvider<List<Badge>>((ref) {
