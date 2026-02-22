@@ -28,6 +28,8 @@ Copy `.env.example` → `.env` and fill in values:
 ```
 SUPABASE_URL=...
 SUPABASE_ANON_KEY=...
+REVENUECAT_IOS_API_KEY=...
+REVENUECAT_ENTITLEMENT_ID=premium
 ```
 
 ### 2) Supabase schema + RLS
@@ -57,7 +59,7 @@ flutter run
 - Anonymous sign-in is the default in onboarding.
 - Email sign-in is available in onboarding.
 - Info.plist includes camera + photo library + microphone + speech + health permissions.
-- All features are free for now (no RevenueCat integration).
+- Premium gating uses RevenueCat (`purchases_flutter`). Configure an entitlement (default: `premium`) and an offering with packages.
 
 ## Optional
 - Local notifications for milestone reminders (not enabled by default).
