@@ -262,7 +262,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'Failed: $error',
+              _friendlyBackendError(error),
               style: const TextStyle(color: _TribeColors.muted),
             ),
           ),
@@ -422,7 +422,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           hasScrollBody: false,
           child: Center(
             child: Text(
-              'Failed: $error',
+              _friendlyBackendError(error),
               style: const TextStyle(color: _TribeColors.muted),
             ),
           ),
@@ -498,13 +498,39 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           hasScrollBody: false,
           child: Center(
             child: Text(
-              'Failed: $error',
+              _friendlyBackendError(error),
               style: const TextStyle(color: _TribeColors.muted),
             ),
           ),
         ),
       ),
     ];
+  }
+
+  String _friendlyBackendError(Object error) {
+    final message = error.toString();
+    if (message.contains('relation \"public.dm_threads\"') ||
+        message.contains('dm_threads')) {
+      return 'Messages backend is not set up yet.\n\n'
+          'Run `supabase/schema.sql` in Supabase SQL Editor to create `dm_threads` and `dm_messages`.';
+    }
+    if (message.contains('relation \"public.challenges\"') ||
+        message.contains('relation \"public.user_challenges\"') ||
+        message.contains('challenges')) {
+      return 'Groups backend is not set up yet.\n\n'
+          'Run `supabase/schema.sql` in Supabase SQL Editor to create `challenges` and `user_challenges`.';
+    }
+    if (message.contains('relation \"public.community_posts\"') ||
+        message.contains('relation \"public.community_replies\"')) {
+      return 'Community backend is not set up yet.\n\n'
+          'Run `supabase/schema.sql` in Supabase SQL Editor to create community tables.';
+    }
+    if (message.contains('violates row-level security policy') ||
+        message.contains('permission denied')) {
+      return 'Permission blocked by RLS.\n\n'
+          'Make sure you are signed in, and run `supabase/schema.sql` to install RLS policies.';
+    }
+    return 'Failed: $message';
   }
 
   void _showSearch(BuildContext context) {
