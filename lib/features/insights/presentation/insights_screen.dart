@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/insights_engine.dart';
+import '../../../core/widgets/premium_gate.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../data/models/journal_entry.dart';
 import '../../../data/models/mood_log.dart';
@@ -35,65 +36,72 @@ class InsightsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: profileAsync.when(
-        data: (profile) {
-          if (profile == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: PremiumGate(
+        lockedTitle: 'Weekly Insights',
+        lockedDescription: 'Upgrade to unlock risk forecasting and reports.',
+        child: profileAsync.when(
+          data: (profile) {
+            if (profile == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          final habits = habitsAsync.maybeWhen(
-            data: (items) => items,
-            orElse: () => const <UserHabit>[],
-          );
-
-          UserHabit? selectedHabit;
-          if (habits.isNotEmpty) {
-            selectedHabit = habits.firstWhere(
-              (habit) => habit.id == selectedHabitId,
-              orElse: () => habits.first,
+            final habits = habitsAsync.maybeWhen(
+              data: (items) => items,
+              orElse: () => const <UserHabit>[],
             );
-          }
 
-          final habitName = selectedHabit?.displayName ?? profile.displayHabitName;
-          final habitStart = selectedHabit?.soberStartDate ?? profile.soberStartDate;
-          final dailySpend = selectedHabit?.dailySpend ?? profile.dailySpend ?? 0;
-          final dailyMinutes =
-              selectedHabit?.dailyTimeSpent ?? profile.dailyTimeSpent ?? 0;
+            UserHabit? selectedHabit;
+            if (habits.isNotEmpty) {
+              selectedHabit = habits.firstWhere(
+                (habit) => habit.id == selectedHabitId,
+                orElse: () => habits.first,
+              );
+            }
 
-          final journal = (journalAsync.value ?? const <JournalEntry>[])
-              .whereType<JournalEntry>()
-              .toList(growable: false);
-          final moods =
-              moodAsync.asData?.value ?? const <MoodLog>[];
-          final relapses =
-              relapseAsync.asData?.value ?? const <RelapseLog>[];
+            final habitName =
+                selectedHabit?.displayName ?? profile.displayHabitName;
+            final habitStart =
+                selectedHabit?.soberStartDate ?? profile.soberStartDate;
+            final dailySpend =
+                selectedHabit?.dailySpend ?? profile.dailySpend ?? 0;
+            final dailyMinutes =
+                selectedHabit?.dailyTimeSpent ?? profile.dailyTimeSpent ?? 0;
 
-          final now = DateTime.now();
-          final report = InsightsEngine.buildWeeklyReport(
-            now: now,
-            journal: journal,
-            moods: moods,
-            relapses: relapses,
-            dailySpend: dailySpend,
-            dailyMinutes: dailyMinutes,
-            habitId: selectedHabitId,
-          );
-          final risk = InsightsEngine.buildRiskForecast(
-            now: now,
-            soberStart: habitStart,
-            journal: journal,
-            moods: moods,
-            relapses: relapses,
-            habitId: selectedHabitId,
-          );
+            final journal = (journalAsync.value ?? const <JournalEntry>[])
+                .whereType<JournalEntry>()
+                .toList(growable: false);
+            final moods = moodAsync.asData?.value ?? const <MoodLog>[];
+            final relapses =
+                relapseAsync.asData?.value ?? const <RelapseLog>[];
 
-          final hotHours = risk.hotHours.isEmpty
-              ? '—'
-              : risk.hotHours.map((h) => '${h.toString().padLeft(2, '0')}:00').join(', ');
+            final now = DateTime.now();
+            final report = InsightsEngine.buildWeeklyReport(
+              now: now,
+              journal: journal,
+              moods: moods,
+              relapses: relapses,
+              dailySpend: dailySpend,
+              dailyMinutes: dailyMinutes,
+              habitId: selectedHabitId,
+            );
+            final risk = InsightsEngine.buildRiskForecast(
+              now: now,
+              soberStart: habitStart,
+              journal: journal,
+              moods: moods,
+              relapses: relapses,
+              habitId: selectedHabitId,
+            );
 
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: <Widget>[
+            final hotHours = risk.hotHours.isEmpty
+                ? '—'
+                : risk.hotHours
+                    .map((h) => '${h.toString().padLeft(2, '0')}:00')
+                    .join(', ');
+
+            return ListView(
+              padding: const EdgeInsets.all(20),
+              children: <Widget>[
               SectionCard(
                 child: Row(
                   children: <Widget>[
@@ -249,9 +257,10 @@ class InsightsScreen extends ConsumerWidget {
               const SizedBox(height: 80),
             ],
           );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Failed: $error')),
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Center(child: Text('Failed: $error')),
+        ),
       ),
     );
   }

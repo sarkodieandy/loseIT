@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/utils/app_logger.dart';
 import '../data/services/notification_service.dart';
 import '../data/services/local_cache_service.dart';
+import '../data/services/revenuecat_service.dart';
 
 class AppBootstrap {
   static Future<void> initialize() async {
@@ -36,6 +37,19 @@ class AppBootstrap {
       ),
     );
 
+    final revenueCatKey = dotenv.env['REVENUECAT_IOS_API_KEY'] ?? '';
+    if (revenueCatKey.trim().isEmpty) {
+      AppLogger.warn('Missing REVENUECAT_IOS_API_KEY in .env (premium disabled)');
+    } else {
+      AppLogger.info('Bootstrap: initializing RevenueCat');
+      await RevenueCatService.instance.initialize(
+        apiKey: revenueCatKey,
+        entitlementId: dotenv.env['REVENUECAT_ENTITLEMENT_ID'] ?? 'premium',
+      );
+      RevenueCatService.instance
+          .syncUser(Supabase.instance.client.auth.currentUser?.id);
+    }
+
     AppLogger.info('Bootstrap: initializing notifications');
     await NotificationService.instance.initialize();
     AppLogger.info('Bootstrap: done');
@@ -44,7 +58,10 @@ class AppBootstrap {
       final session = event.session;
       if (session?.user != null) {
         AppLogger.info('Auth session updated for user ${session!.user.id}');
+      } else {
+        AppLogger.info('Auth session cleared');
       }
+      RevenueCatService.instance.syncUser(session?.user.id);
     });
   }
 }

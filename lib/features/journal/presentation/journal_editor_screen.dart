@@ -9,6 +9,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/app_buttons.dart';
+import '../../../core/widgets/premium_gate.dart';
 import '../../../data/models/user_habit.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
@@ -229,10 +230,16 @@ class _JournalEditorScreenState extends ConsumerState<JournalEditorScreen> {
             label: const Text('Attach photo'),
           ),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _toggleRecording,
-            icon: Icon(_isRecording ? Icons.stop_circle : Icons.mic),
-            label: Text(_isRecording ? 'Stop recording' : 'Record voice note'),
+          PremiumGate(
+            lockedTitle: 'Voice journal',
+            lockedDescription: 'Upgrade to record voice notes.',
+            child: OutlinedButton.icon(
+              onPressed: _toggleRecording,
+              icon: Icon(_isRecording ? Icons.stop_circle : Icons.mic),
+              label: Text(
+                _isRecording ? 'Stop recording' : 'Record voice note',
+              ),
+            ),
           ),
           if (_photo != null) ...[
             const SizedBox(height: 12),

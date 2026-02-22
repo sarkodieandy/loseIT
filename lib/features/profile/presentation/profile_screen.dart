@@ -7,7 +7,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/premium_gate.dart';
 import '../../../core/widgets/section_card.dart';
+import '../../../data/services/revenuecat_service.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
@@ -20,6 +22,7 @@ class ProfileScreen extends ConsumerWidget {
     final profileAsync = ref.watch(profileControllerProvider);
     final settings = ref.watch(settingsControllerProvider);
     final badgesAsync = ref.watch(userBadgesProvider);
+    final isPremium = ref.watch(premiumControllerProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
@@ -62,6 +65,38 @@ class ProfileScreen extends ConsumerWidget {
             },
             loading: () => const SectionCard(child: Text('Loading profile…')),
             error: (error, _) => SectionCard(child: Text('Error: $error')),
+          ),
+          const SizedBox(height: 16),
+          SectionCard(
+            child: Row(
+              children: <Widget>[
+                const Icon(Icons.workspace_premium),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        isPremium ? 'Premium active' : 'Free plan',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isPremium
+                            ? 'Thanks for supporting Be Sober.'
+                            : 'Unlock multi-habit, insights, voice journal, and more.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () => context.push('/paywall'),
+                  child: Text(isPremium ? 'Manage' : 'Go Premium'),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           SectionCard(
@@ -123,19 +158,31 @@ class ProfileScreen extends ConsumerWidget {
                   child: const Text('Manage habits'),
                 ),
                 const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: () => context.push('/support'),
-                  child: const Text('Support network'),
+                PremiumGate(
+                  lockedTitle: 'Support network',
+                  lockedDescription: 'Premium required.',
+                  child: OutlinedButton(
+                    onPressed: () => context.push('/support'),
+                    child: const Text('Support network'),
+                  ),
                 ),
                 const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: () => context.push('/milestones'),
-                  child: const Text('Custom milestones'),
+                PremiumGate(
+                  lockedTitle: 'Custom milestones',
+                  lockedDescription: 'Premium required.',
+                  child: OutlinedButton(
+                    onPressed: () => context.push('/milestones'),
+                    child: const Text('Custom milestones'),
+                  ),
                 ),
                 const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: () => _exportData(context, ref),
-                  child: const Text('Export data'),
+                PremiumGate(
+                  lockedTitle: 'Export data',
+                  lockedDescription: 'Premium required.',
+                  child: OutlinedButton(
+                    onPressed: () => _exportData(context, ref),
+                    child: const Text('Export data'),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton(
@@ -144,6 +191,24 @@ class ProfileScreen extends ConsumerWidget {
                     await ref.read(settingsControllerProvider.notifier).setOnboardingComplete(false);
                   },
                   child: const Text('Log out'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () async {
+                    final info =
+                        await RevenueCatService.instance.restorePurchases();
+                    if (!context.mounted) return;
+                    final restored = info != null &&
+                        RevenueCatService.instance.isPremiumFrom(info);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(restored
+                            ? 'Purchases restored.'
+                            : 'No active subscription found.'),
+                      ),
+                    );
+                  },
+                  child: const Text('Restore purchases'),
                 ),
               ],
             ),

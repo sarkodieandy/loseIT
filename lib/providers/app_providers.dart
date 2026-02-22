@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../data/services/revenuecat_service.dart';
 import 'settings_controller.dart';
 import 'premium_controller.dart';
 
@@ -34,5 +35,5 @@ final onboardingCompleteProvider = Provider<bool>((ref) {
 
 final premiumControllerProvider =
     StateNotifierProvider<PremiumController, bool>((ref) {
-  return PremiumController();
+  return PremiumController(RevenueCatService.instance);
 });

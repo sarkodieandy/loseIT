@@ -21,6 +21,7 @@ dependencies:
   lottie: ^3.1.2
   shimmer: ^3.0.0
   supabase_flutter: ^2.9.0
+  purchases_flutter: ^6.30.2
   flutter_dotenv: ^5.1.0
   flutter_svg: ^2.0.10+1
   fl_chart: ^0.68.0

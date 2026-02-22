@@ -44,4 +44,31 @@ post_install do |installer|
     end
 
   end
+
+  # Xcode/Swift toolchains can introduce an ambiguity between StoreKit and
+  # RevenueCat types named `SubscriptionPeriod`. Older PurchasesHybridCommon
+  # versions reference it unqualified which fails compilation. This patch is
+  # best-effort and only runs when the file exists.
+  hybrid_file = File.join(
+    installer.sandbox.root,
+    'PurchasesHybridCommon',
+    'ios',
+    'PurchasesHybridCommon',
+    'PurchasesHybridCommon',
+    'StoreProduct+HybridAdditions.swift'
+  )
+  if File.exist?(hybrid_file)
+    begin
+      contents = File.read(hybrid_file)
+      patched = contents.gsub(
+        /(?<!\.)\bSubscriptionPeriod\b/,
+        'PurchasesHybridCommon.SubscriptionPeriod'
+      )
+      if patched != contents
+        File.write(hybrid_file, patched)
+      end
+    rescue => e
+      puts "RevenueCat patch skipped: #{e}"
+    end
+  end
 end

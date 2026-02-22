@@ -9,9 +9,26 @@ create table if not exists public.profiles (
   daily_time_spent integer null,
   motivation_text text null,
   motivation_photo_url text null,
+  -- Public alias shown in community UI (never an email/name).
+  alias text null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists alias text;
+
+-- Backfill a stable default alias.
+update public.profiles
+set alias = coalesce(
+  nullif(alias, ''),
+  'SoberFriend#' || substring(replace(id::text, '-', '') from 1 for 4)
+)
+where alias is null or alias = '';
+
+alter table public.profiles
+  alter column alias set default 'Anon',
+  alter column alias set not null;
 
 create table if not exists public.journal_entries (
   id uuid primary key default gen_random_uuid(),
