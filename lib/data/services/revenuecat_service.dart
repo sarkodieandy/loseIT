@@ -34,7 +34,7 @@ class RevenueCatService {
       return;
     }
 
-    _entitlementId = entitlementId.trim().isEmpty ? 'premium' : entitlementId;
+    _entitlementId = _normalizeEntitlementId(entitlementId);
 
     try {
       if (kDebugMode) {
@@ -64,6 +64,25 @@ class RevenueCatService {
     } catch (error, stackTrace) {
       AppLogger.error('revenuecat.initialize', error, stackTrace);
     }
+  }
+
+  static String _normalizeEntitlementId(String value) {
+    var trimmed = value.trim();
+    if (trimmed.isEmpty) return 'premium';
+
+    // Allow `.env` to use quotes for values with spaces, like:
+    // REVENUECAT_ENTITLEMENT_ID="Be Sober Pro"
+    if (trimmed.length >= 2) {
+      final first = trimmed.codeUnitAt(0);
+      final last = trimmed.codeUnitAt(trimmed.length - 1);
+      final isDoubleQuoted = first == 34 && last == 34; // "
+      final isSingleQuoted = first == 39 && last == 39; // '
+      if (isDoubleQuoted || isSingleQuoted) {
+        trimmed = trimmed.substring(1, trimmed.length - 1).trim();
+      }
+    }
+
+    return trimmed.isEmpty ? 'premium' : trimmed;
   }
 
   bool isPremiumFrom(CustomerInfo info) {
