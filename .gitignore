@@ -50,6 +50,7 @@ app.*.map.json
 # Local Dart defines (RevenueCat keys, etc.)
 /ios/Flutter/DartDefines.xcconfig
 /tool/dart_defines.env
+/tool/appstore/
 .env
 .env.*
 !.env.example
