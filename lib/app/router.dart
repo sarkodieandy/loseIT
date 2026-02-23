@@ -14,6 +14,7 @@ import '../features/challenges/presentation/challenges_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/dm/presentation/dm_chat_screen.dart';
 import '../features/dm/presentation/dm_inbox_screen.dart';
+import '../features/emergency/presentation/emergency_sos_screen.dart';
 import '../features/habits/presentation/habits_screen.dart';
 import '../features/insights/presentation/insights_screen.dart';
 import '../features/support/presentation/support_chat_screen.dart';
@@ -236,6 +237,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         path: '/focus/urge',
         builder: (context, state) => const UrgeTimerScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/emergency-sos',
+        builder: (context, state) => const EmergencySosScreen(),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,

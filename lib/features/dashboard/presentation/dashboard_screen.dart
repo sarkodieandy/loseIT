@@ -17,6 +17,7 @@ import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/habit_selection_provider.dart';
 import '../../../providers/repository_providers.dart';
+import '../../insights/presentation/ai_predictor_card.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -29,7 +30,7 @@ class DashboardScreen extends ConsumerWidget {
     final habitsAsync = ref.watch(habitsProvider);
     final selectedHabitId = ref.watch(selectedHabitIdProvider);
     final isPremium = ref.watch(premiumControllerProvider);
-    final promptsAsync = ref.watch(promptsProvider(isPremium));
+    final promptsAsync = ref.watch(promptsProvider(isPremium as bool));
     final journalAsync = ref.watch(journalControllerProvider);
     final milestonesAsync = ref.watch(customMilestonesProvider);
     final moodsAsync = ref.watch(moodLogsProvider);
@@ -54,10 +55,13 @@ class DashboardScreen extends ConsumerWidget {
           );
         }
 
-        final habitName = selectedHabit?.displayName ?? profile.displayHabitName;
-        final habitStart = selectedHabit?.soberStartDate ?? profile.soberStartDate;
+        final habitName =
+            selectedHabit?.displayName ?? profile.displayHabitName;
+        final habitStart =
+            selectedHabit?.soberStartDate ?? profile.soberStartDate;
         final dailySpend = selectedHabit?.dailySpend ?? profile.dailySpend ?? 0;
-        final dailyMinutes = selectedHabit?.dailyTimeSpent ?? profile.dailyTimeSpent ?? 0;
+        final dailyMinutes =
+            selectedHabit?.dailyTimeSpent ?? profile.dailyTimeSpent ?? 0;
 
         final now = DateTime.now();
         final duration = now.difference(habitStart);
@@ -134,9 +138,15 @@ class DashboardScreen extends ConsumerWidget {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: <Color>[
-                        Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                        Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withValues(alpha: 0.08),
                         Theme.of(context).scaffoldBackgroundColor,
-                        Theme.of(context).colorScheme.secondary.withValues(alpha: 0.06),
+                        Theme.of(context)
+                            .colorScheme
+                            .secondary
+                            .withValues(alpha: 0.06),
                       ],
                     ),
                   ),
@@ -153,8 +163,14 @@ class DashboardScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: <Color>[
-                              Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
-                              Theme.of(context).colorScheme.secondary.withValues(alpha: 0.12),
+                              Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withValues(alpha: 0.18),
+                              Theme.of(context)
+                                  .colorScheme
+                                  .secondary
+                                  .withValues(alpha: 0.12),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(24),
@@ -180,7 +196,10 @@ class DashboardScreen extends ConsumerWidget {
                                 Expanded(
                                   child: Text(
                                     habitName,
-                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
                                           fontWeight: FontWeight.w700,
                                         ),
                                   ),
@@ -188,7 +207,8 @@ class DashboardScreen extends ConsumerWidget {
                                 if (habits.isNotEmpty)
                                   DropdownButtonHideUnderline(
                                     child: DropdownButton<String>(
-                                      value: selectedHabit?.id ?? habits.first.id,
+                                      value:
+                                          selectedHabit?.id ?? habits.first.id,
                                       items: habits
                                           .map(
                                             (habit) => DropdownMenuItem<String>(
@@ -199,8 +219,10 @@ class DashboardScreen extends ConsumerWidget {
                                           .toList(),
                                       onChanged: (value) {
                                         if (value != null) {
-                                          ref.read(selectedHabitIdProvider.notifier).state =
-                                              value;
+                                          ref
+                                              .read(selectedHabitIdProvider
+                                                  .notifier)
+                                              .state = value;
                                         }
                                       },
                                     ),
@@ -225,7 +247,8 @@ class DashboardScreen extends ConsumerWidget {
                                       end: Offset.zero,
                                     ).animate(curved),
                                     child: ScaleTransition(
-                                      scale: Tween<double>(begin: 0.98, end: 1).animate(curved),
+                                      scale: Tween<double>(begin: 0.98, end: 1)
+                                          .animate(curved),
                                       child: child,
                                     ),
                                   ),
@@ -234,7 +257,10 @@ class DashboardScreen extends ConsumerWidget {
                               child: Text(
                                 '${days}d ${hours}h ${minutes}m',
                                 key: ValueKey('${days}_${hours}_${minutes}'),
-                                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .displaySmall
+                                    ?.copyWith(
                                       fontWeight: FontWeight.bold,
                                     ),
                               ),
@@ -257,6 +283,40 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 20),
                     reveal(
+                      _AiPredictorCardWrapper(
+                        daysSober: days,
+                        avgUrgesPerDay: journalEntries.length > 0
+                            ? (journalEntries.fold<int>(0, (acc, entry) {
+                                      final count = entry.content
+                                          .split(' ')
+                                          .where((word) => word
+                                              .toLowerCase()
+                                              .contains('urge'))
+                                          .length;
+                                      return acc + count;
+                                    }) /
+                                    days)
+                                .ceil()
+                            : 1,
+                        recentTriggers: journalEntries.length > 0
+                            ? journalEntries
+                                .take(5)
+                                .map((e) => e.content)
+                                .toList()
+                            : [],
+                        stressLevel: moodLogs.isNotEmpty
+                            ? (moodLogs
+                                        .where((m) => m.mood == 'stressed')
+                                        .length *
+                                    10 ~/
+                                    (moodLogs.length > 0 ? moodLogs.length : 1))
+                                .clamp(1, 10)
+                            : 5,
+                        historicalFailDays: const [1, 6],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    reveal(
                       const SectionCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,7 +333,8 @@ class DashboardScreen extends ConsumerWidget {
                               children: <Widget>[
                                 _MoodChip(label: '😊 Happy', mood: 'happy'),
                                 _MoodChip(label: '😌 Calm', mood: 'calm'),
-                                _MoodChip(label: '😤 Stressed', mood: 'stressed'),
+                                _MoodChip(
+                                    label: '😤 Stressed', mood: 'stressed'),
                                 _MoodChip(label: '😔 Sad', mood: 'sad'),
                               ],
                             ),
@@ -292,7 +353,8 @@ class DashboardScreen extends ConsumerWidget {
                                 children: <Widget>[
                                   Text(
                                     'Risk forecast',
-                                    style: Theme.of(context).textTheme.titleMedium,
+                                    style:
+                                        Theme.of(context).textTheme.titleMedium,
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
@@ -346,7 +408,8 @@ class DashboardScreen extends ConsumerWidget {
                               children: <Widget>[
                                 Text(
                                   'Daily Motivation',
-                                  style: Theme.of(context).textTheme.titleMedium,
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
@@ -356,8 +419,10 @@ class DashboardScreen extends ConsumerWidget {
                               ],
                             );
                           },
-                          loading: () => const Text('Loading daily motivation…'),
-                          error: (error, _) => Text('Failed to load prompt: $error'),
+                          loading: () =>
+                              const Text('Loading daily motivation…'),
+                          error: (error, _) =>
+                              Text('Failed to load prompt: $error'),
                         ),
                       ),
                     ),
@@ -374,7 +439,8 @@ class DashboardScreen extends ConsumerWidget {
                               children: <Widget>[
                                 Text(
                                   'Custom Milestones',
-                                  style: Theme.of(context).textTheme.titleMedium,
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
                                 ),
                                 const SizedBox(height: 8),
                                 ...milestones.map(
@@ -460,7 +526,8 @@ class DashboardScreen extends ConsumerWidget {
                                 ),
                                 _MiniStat(
                                   label: 'Saved',
-                                  value: Formatters.formatMoney(weeklyReport.moneySaved),
+                                  value: Formatters.formatMoney(
+                                      weeklyReport.moneySaved),
                                 ),
                               ],
                             ),
@@ -496,7 +563,10 @@ class DashboardScreen extends ConsumerWidget {
                                   const SizedBox(height: 6),
                                   Text(
                                     Formatters.formatMoney(moneySaved),
-                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(
                                           fontWeight: FontWeight.bold,
                                         ),
                                   ),
@@ -514,7 +584,10 @@ class DashboardScreen extends ConsumerWidget {
                                   const SizedBox(height: 6),
                                   Text(
                                     '${timeSavedHours.toStringAsFixed(1)}h',
-                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(
                                           fontWeight: FontWeight.bold,
                                         ),
                                   ),
@@ -540,7 +613,8 @@ class DashboardScreen extends ConsumerWidget {
                               height: 72,
                               child: achieved.isEmpty
                                   ? const Center(
-                                      child: Text('Your first milestone is close!'),
+                                      child: Text(
+                                          'Your first milestone is close!'),
                                     )
                                   : ListView.separated(
                                       physics: const BouncingScrollPhysics(),
@@ -549,7 +623,8 @@ class DashboardScreen extends ConsumerWidget {
                                         final milestone = achieved[index];
                                         return AnimatedReveal(
                                           key: ValueKey('mile_$milestone'),
-                                          delay: AppMotion.stagger(index, stepMs: 35, maxSteps: 8),
+                                          delay: AppMotion.stagger(index,
+                                              stepMs: 35, maxSteps: 8),
                                           duration: AppMotion.medium,
                                           beginOffset: const Offset(0.08, 0),
                                           child: Container(
@@ -559,17 +634,21 @@ class DashboardScreen extends ConsumerWidget {
                                                   .colorScheme
                                                   .primary
                                                   .withValues(alpha: 0.1),
-                                              borderRadius: BorderRadius.circular(18),
+                                              borderRadius:
+                                                  BorderRadius.circular(18),
                                             ),
                                             child: Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
                                               children: <Widget>[
                                                 Text(
                                                   '$milestone',
                                                   style: Theme.of(context)
                                                       .textTheme
                                                       .titleLarge
-                                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                                      ?.copyWith(
+                                                          fontWeight:
+                                                              FontWeight.bold),
                                                 ),
                                                 const SizedBox(height: 4),
                                                 const Text('days'),
@@ -578,7 +657,8 @@ class DashboardScreen extends ConsumerWidget {
                                           ),
                                         );
                                       },
-                                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(width: 12),
                                       itemCount: achieved.length,
                                     ),
                             ),
@@ -595,13 +675,15 @@ class DashboardScreen extends ConsumerWidget {
                               SizedBox(
                                 width: 72,
                                 height: 72,
-                                child: Lottie.asset('assets/lottie/confetti.json'),
+                                child:
+                                    Lottie.asset('assets/lottie/confetti.json'),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
                                   'You hit $days days sober. Celebrate the win!',
-                                  style: Theme.of(context).textTheme.titleMedium,
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
                                 ),
                               ),
                             ],
@@ -845,12 +927,62 @@ class _MiniStat extends StatelessWidget {
   }
 }
 
+class _AiPredictorCardWrapper extends ConsumerWidget {
+  const _AiPredictorCardWrapper({
+    required this.daysSober,
+    required this.avgUrgesPerDay,
+    required this.recentTriggers,
+    required this.stressLevel,
+    required this.historicalFailDays,
+  });
+
+  final int daysSober;
+  final int avgUrgesPerDay;
+  final List<String> recentTriggers;
+  final int stressLevel;
+  final List<int> historicalFailDays;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder(
+      future: ref.read(aiRelapsePredictorProvider).generateDailyPrediction(
+            daysSober: daysSober,
+            recentTriggers: recentTriggers,
+            avgUrgesPerDay: avgUrgesPerDay,
+            stressLevel: stressLevel,
+            historicalFailDays: historicalFailDays,
+          ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SectionCard(
+            child: SizedBox(
+              height: 120,
+              child: Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.hasError || snapshot.data == null) {
+          return const SectionCard(
+            child: Text('Unable to generate prediction'),
+          );
+        }
+
+        return AiPredictorCard(prediction: snapshot.data!);
+      },
+    );
+  }
+}
+
 int _computeJournalStreak(List<dynamic> entries, String? habitId) {
   final byDate = <DateTime>{};
   for (final entry in entries) {
     if (entry is! JournalEntry) continue;
     if (habitId != null && entry.habitId != habitId) continue;
-    final day = DateTime(entry.entryDate.year, entry.entryDate.month, entry.entryDate.day);
+    final day = DateTime(
+        entry.entryDate.year, entry.entryDate.month, entry.entryDate.day);
     byDate.add(day);
   }
 

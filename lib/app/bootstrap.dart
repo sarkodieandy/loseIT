@@ -39,13 +39,18 @@ class AppBootstrap {
 
     final revenueCatKey = dotenv.env['REVENUECAT_IOS_API_KEY'] ?? '';
     if (revenueCatKey.trim().isEmpty) {
-      AppLogger.warn('Missing REVENUECAT_IOS_API_KEY in .env (premium disabled)');
+      AppLogger.warn(
+          'Missing REVENUECAT_IOS_API_KEY in .env (premium disabled)');
     } else {
       AppLogger.info('Bootstrap: initializing RevenueCat');
       await RevenueCatService.instance.initialize(
         apiKey: revenueCatKey,
         entitlementId: dotenv.env['REVENUECAT_ENTITLEMENT_ID'] ?? 'premium',
       );
+      final entitlementId =
+          dotenv.env['REVENUECAT_ENTITLEMENT_ID'] ?? 'premium';
+      AppLogger.info(
+          'Bootstrap: RevenueCat ready, entitlement=$entitlementId, offering=default');
       RevenueCatService.instance
           .syncUser(Supabase.instance.client.auth.currentUser?.id);
     }

@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 // Generates App Store review-ready screenshots for the paywall.
 //
@@ -16,14 +15,10 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    // Golden tests run in a sandboxed environment without network access.
-    GoogleFonts.config.allowRuntimeFetching = false;
-
     final outDir = Directory('tool/appstore');
     if (!outDir.existsSync()) outDir.createSync(recursive: true);
 
-    goldenFileComparator =
-        LocalFileComparator(Directory.current.uri.resolve('tool/appstore/'));
+    goldenFileComparator = LocalFileComparator(outDir.absolute.uri);
   });
 
   Future<void> _pumpSized(
@@ -43,7 +38,8 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('Paywall review screenshot (iPhone 13/14 - 1170x2532)', (tester) async {
+  testWidgets('Paywall review screenshot (iPhone 13/14 - 1170x2532)',
+      (tester) async {
     await _pumpSized(
       tester,
       physicalSize: const Size(1170, 2532),
@@ -56,7 +52,8 @@ void main() {
     );
   });
 
-  testWidgets('Paywall review screenshot (iPhone 14 Pro Max - 1290x2796)', (tester) async {
+  testWidgets('Paywall review screenshot (iPhone 14 Pro Max - 1290x2796)',
+      (tester) async {
     await _pumpSized(
       tester,
       physicalSize: const Size(1290, 2796),
@@ -83,7 +80,6 @@ class _PaywallScreenshotApp extends StatelessWidget {
         secondary: _PaywallColors.green,
         surface: _PaywallColors.card,
       ),
-      textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
     );
 
     return MaterialApp(
@@ -104,7 +100,6 @@ class _PaywallColors {
   static const Color cardBorder = Color(0x1AFFFFFF);
   static const Color muted = Color(0xFF9AA3AB);
   static const Color accent = Color(0xFF26B7FF);
-  static const Color chip = Color(0xFF0D1115);
   static const Color green = Color(0xFF19C37D);
   static const Color amber = Color(0xFFFFB020);
 }
@@ -193,9 +188,15 @@ class _PaywallReviewScreen extends StatelessWidget {
                             spacing: 10,
                             runSpacing: 10,
                             children: <Widget>[
-                              _Pill(icon: Icons.shield_outlined, label: 'Private'),
-                              _Pill(icon: Icons.auto_graph, label: 'Weekly insights'),
-                              _Pill(icon: Icons.groups_2_outlined, label: 'Groups + chat'),
+                              _Pill(
+                                  icon: Icons.shield_outlined,
+                                  label: 'Private'),
+                              _Pill(
+                                  icon: Icons.auto_graph,
+                                  label: 'Weekly insights'),
+                              _Pill(
+                                  icon: Icons.groups_2_outlined,
+                                  label: 'Groups + chat'),
                             ],
                           ),
                           const SizedBox(height: 18),
@@ -262,8 +263,11 @@ class _PaywallReviewScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          runSpacing: 2,
                           children: <Widget>[
                             TextButton(
                               onPressed: () {},
@@ -433,7 +437,8 @@ class _FeatureCard extends StatelessWidget {
           _BenefitRow(
             icon: Icons.insights_outlined,
             title: 'Weekly insights',
-            subtitle: 'See what helps you stay consistent (and what trips you up).',
+            subtitle:
+                'See what helps you stay consistent (and what trips you up).',
           ),
           SizedBox(height: 12),
           _BenefitRow(
@@ -485,11 +490,7 @@ class _BenefitRow extends StatelessWidget {
               color: _PaywallColors.accent.withValues(alpha: 0.25),
             ),
           ),
-          child: const Icon(
-            Icons.check,
-            color: _PaywallColors.accent,
-            size: 18,
-          ),
+          child: Icon(icon, color: _PaywallColors.accent, size: 18),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -573,7 +574,10 @@ class _PlanCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Row(
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: <Widget>[
                     Text(
                       title,
@@ -583,7 +587,6 @@ class _PlanCard extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(width: 10),
                     _PlanBadge(
                       label: badge,
                       selected: selected,
@@ -628,9 +631,8 @@ class _PlanBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected
-        ? _PaywallColors.accent
-        : Colors.white.withValues(alpha: 0.06);
+    final bg =
+        selected ? _PaywallColors.accent : Colors.white.withValues(alpha: 0.06);
     final fg = selected ? Colors.black : _PaywallColors.muted;
 
     return Container(
@@ -655,4 +657,3 @@ class _PlanBadge extends StatelessWidget {
     );
   }
 }
-

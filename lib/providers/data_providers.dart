@@ -119,7 +119,8 @@ final communityOnlineCountProvider = StreamProvider<int>((ref) {
   return controller.stream;
 });
 
-final communityPostProvider = FutureProvider.family<CommunityPost?, String>((ref, postId) {
+final communityPostProvider =
+    FutureProvider.family<CommunityPost?, String>((ref, postId) {
   final repository = ref.watch(communityRepositoryProvider);
   return repository.fetchPost(postId);
 });
@@ -147,7 +148,8 @@ final dmThreadsProvider = StreamProvider<List<DmThread>>((ref) {
   });
 });
 
-final dmMessagesProvider = StreamProvider.family<List<DmMessage>, String>((ref, threadId) {
+final dmMessagesProvider =
+    StreamProvider.family<List<DmMessage>, String>((ref, threadId) {
   final repository = ref.watch(dmRepositoryProvider);
   return repository.streamMessages(threadId).handleError((error, stackTrace) {
     AppLogger.error(
@@ -186,7 +188,9 @@ final groupProvider = FutureProvider.family<Challenge?, String>((ref, groupId) {
 final groupCheckinsProvider =
     StreamProvider.family<List<GroupCheckin>, String>((ref, groupId) {
   final repository = ref.watch(challengesRepositoryProvider);
-  return repository.streamGroupCheckins(groupId).handleError((error, stackTrace) {
+  return repository
+      .streamGroupCheckins(groupId)
+      .handleError((error, stackTrace) {
     AppLogger.error(
       'groups.checkins.stream',
       _asObject(error, 'Unknown group checkins stream error'),
@@ -198,7 +202,9 @@ final groupCheckinsProvider =
 final groupMessagesProvider =
     StreamProvider.family<List<GroupMessage>, String>((ref, groupId) {
   final repository = ref.watch(challengesRepositoryProvider);
-  return repository.streamGroupMessages(groupId).handleError((error, stackTrace) {
+  return repository
+      .streamGroupMessages(groupId)
+      .handleError((error, stackTrace) {
     AppLogger.error(
       'groups.messages.stream',
       _asObject(error, 'Unknown group messages stream error'),
@@ -217,12 +223,43 @@ final userBadgesProvider = FutureProvider<List<UserBadge>>((ref) {
   return repository.fetchUserBadges();
 });
 
-final promptsProvider = FutureProvider.family<List<DailyPrompt>, bool>((ref, isPremium) {
+final earnedBadgesProvider = FutureProvider<List<Badge>>((ref) async {
+  final userBadges = await ref.watch(userBadgesProvider.future);
+
+  // Import BadgeLibrary
+  final Map<String, Badge> badgeMap = {
+    for (final badge in BadgeLibrary.allBadges) badge.id: badge,
+  };
+
+  final earnedBadges = <Badge>[];
+  for (final userBadge in userBadges) {
+    final baseBadge = badgeMap[userBadge.badgeId];
+    if (baseBadge != null) {
+      earnedBadges.add(
+        Badge(
+          id: baseBadge.id,
+          name: baseBadge.name,
+          description: baseBadge.description,
+          icon: baseBadge.icon,
+          criteria: baseBadge.criteria,
+          category: baseBadge.category,
+          rarity: baseBadge.rarity,
+          earnedAt: userBadge.earnedAt,
+        ),
+      );
+    }
+  }
+  return earnedBadges;
+});
+
+final promptsProvider =
+    FutureProvider.family<List<DailyPrompt>, bool>((ref, isPremium) {
   final repository = ref.watch(promptsRepositoryProvider);
   return repository.fetchPrompts(includePremium: isPremium);
 });
 
-final supportConnectionsProvider = FutureProvider<List<SupportConnection>>((ref) {
+final supportConnectionsProvider =
+    FutureProvider<List<SupportConnection>>((ref) {
   final repository = ref.watch(supportRepositoryProvider);
   return repository.fetchConnections();
 });
@@ -230,7 +267,9 @@ final supportConnectionsProvider = FutureProvider<List<SupportConnection>>((ref)
 final supportMessagesProvider =
     StreamProvider.family<List<SupportMessage>, String>((ref, connectionId) {
   final repository = ref.watch(supportRepositoryProvider);
-  return repository.streamMessages(connectionId).handleError((error, stackTrace) {
+  return repository
+      .streamMessages(connectionId)
+      .handleError((error, stackTrace) {
     AppLogger.error(
       'support.messages.stream',
       _asObject(error, 'Unknown support messages stream error'),

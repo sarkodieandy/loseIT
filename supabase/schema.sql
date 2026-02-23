@@ -11,6 +11,9 @@ create table if not exists public.profiles (
   motivation_photo_url text null,
   -- Public alias shown in community UI (never an email/name).
   alias text null,
+  -- Trial tracking for 7-day trial period
+  trial_ends_at timestamptz null,
+  trial_used boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -444,6 +447,20 @@ create table if not exists public.support_messages (
   sender_id uuid not null references public.profiles (id) on delete cascade,
   message text not null,
   created_at timestamptz not null default now()
+);
+
+create table if not exists public.emergency_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  session_id text not null,
+  technique text not null, -- 'breathing' or 'grounding'
+  duration_seconds integer not null default 0,
+  completed boolean not null default false,
+  contacted_support boolean not null default false,
+  notes text null,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz null,
+  unique(user_id, session_id)
 );
 
 create or replace function public.set_updated_at()

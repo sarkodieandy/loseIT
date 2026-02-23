@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/services/revenuecat_service.dart';
+import '../data/services/emergency_sos_service.dart';
+import '../data/services/ai_relapse_predictor_service.dart';
+import '../data/services/badge_service.dart';
 import 'settings_controller.dart';
 import 'premium_controller.dart';
 
@@ -34,6 +37,35 @@ final onboardingCompleteProvider = Provider<bool>((ref) {
 });
 
 final premiumControllerProvider =
-    StateNotifierProvider<PremiumController, bool>((ref) {
+    StateNotifierProvider<PremiumController, PremiumStatus>((ref) {
   return PremiumController(RevenueCatService.instance);
+});
+
+/// Helper: true if user has premium access (paid or active trial)
+final isPremiumProvider = Provider<bool>((ref) {
+  final status = ref.watch(premiumControllerProvider);
+  return status.hasAccess;
+});
+
+/// Helper: true if only trial is active (not paid)
+final isTrialOnlyProvider = Provider<bool>((ref) {
+  final status = ref.watch(premiumControllerProvider);
+  return status.isTrialActive && !status.isPremium;
+});
+
+/// Helper: trial days remaining
+final trialDaysProvider = Provider<int>((ref) {
+  final status = ref.watch(premiumControllerProvider);
+  return status.trialDaysRemaining;
+});
+
+final emergencySosSessionProvider = StreamProvider<dynamic>((ref) {
+  return EmergencySosService.instance.sessionStream;
+});
+final aiRelapsePredictorProvider = Provider<AiRelapsePredictorService>((ref) {
+  return AiRelapsePredictorService.instance;
+});
+
+final badgeServiceProvider = Provider<BadgeService>((ref) {
+  return BadgeService.instance;
 });

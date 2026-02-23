@@ -12,7 +12,7 @@ class AnalyticsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isPremium = ref.watch(premiumControllerProvider);
+    final isPremium = ref.watch(isPremiumProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Analytics')),
@@ -85,7 +85,8 @@ class AnalyticsScreen extends ConsumerWidget {
                                 barRods: <BarChartRodData>[
                                   BarChartRodData(
                                     toY: (index + 2).toDouble(),
-                                    color: Theme.of(context).colorScheme.secondary,
+                                    color:
+                                        Theme.of(context).colorScheme.secondary,
                                     width: 10,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
@@ -117,8 +118,8 @@ class AnalyticsScreen extends ConsumerWidget {
                       OutlinedButton(
                         onPressed: isPremium
                             ? () async {
-                                final granted =
-                                    await HealthService.instance.requestAuthorization();
+                                final granted = await HealthService.instance
+                                    .requestAuthorization();
                                 if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(

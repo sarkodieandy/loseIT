@@ -5,6 +5,7 @@ import '../data/repositories/badges_repository.dart';
 import '../data/repositories/challenges_repository.dart';
 import '../data/repositories/community_repository.dart';
 import '../data/repositories/dm_repository.dart';
+import '../data/repositories/emergency_sessions_repository.dart';
 import '../data/repositories/habits_repository.dart';
 import '../data/repositories/journal_repository.dart';
 import '../data/repositories/milestones_repository.dart';
@@ -84,4 +85,9 @@ final relapseRepositoryProvider = Provider<RelapseRepository>((ref) {
 final urgeRepositoryProvider = Provider<UrgeRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return UrgeRepository(client);
+});
+final emergencySessionsRepositoryProvider =
+    Provider<EmergencySessionsRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return EmergencySessionsRepository(client);
 });

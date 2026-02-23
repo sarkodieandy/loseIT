@@ -76,6 +76,93 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: <Widget>[
+          // Emergency SOS Button
+          PremiumGate(
+            lockedTitle: 'Emergency Support',
+            lockedDescription: 'Premium feature for crisis moments.',
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: <Color>[
+                    Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+                    Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .error
+                      .withValues(alpha: 0.5),
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => context.push('/emergency-sos'),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                              child: Icon(
+                                Icons.emergency,
+                                color: Theme.of(context).colorScheme.onError,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    'Emergency SOS',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .error,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Guided breathing & grounding',
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right,
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           SectionCard(
             child: Row(
               children: <Widget>[
@@ -154,7 +241,8 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
               );
             },
             loading: () => const SizedBox.shrink(),
-            error: (error, _) => SectionCard(child: Text('Urge logs failed: $error')),
+            error: (error, _) =>
+                SectionCard(child: Text('Urge logs failed: $error')),
           ),
         ],
       ),

@@ -20,7 +20,7 @@ class PremiumGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isPremium = ref.watch(premiumControllerProvider);
+    final isPremium = ref.watch(isPremiumProvider);
     if (isPremium) return child;
 
     void openPaywall() {

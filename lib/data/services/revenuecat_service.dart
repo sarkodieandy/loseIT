@@ -45,12 +45,19 @@ class RevenueCatService {
 
       await Purchases.configure(PurchasesConfiguration(trimmedKey));
 
-      Purchases.addCustomerInfoUpdateListener((info) {
-        _lastCustomerInfo = info;
-        if (!_customerInfoController.isClosed) {
-          _customerInfoController.add(info);
-        }
-      });
+      Purchases.addCustomerInfoUpdateListener(
+        (info) {
+          try {
+            _lastCustomerInfo = info;
+            if (!_customerInfoController.isClosed) {
+              _customerInfoController.add(info);
+            }
+            AppLogger.info('revenuecat: customer info updated');
+          } catch (error, stackTrace) {
+            AppLogger.error('revenuecat.listener', error, stackTrace);
+          }
+        },
+      );
 
       _configured = true;
       AppLogger.info('RevenueCat: configured entitlement=$_entitlementId');
@@ -90,12 +97,42 @@ class RevenueCatService {
     return active.containsKey(_entitlementId);
   }
 
+  /// Check if trial is still active
+  bool isTrialActive(DateTime? trialEndsAt) {
+    if (trialEndsAt == null) return false;
+    return DateTime.now().isBefore(trialEndsAt);
+  }
+
+  /// Get trial days remaining
+  int getTrialDaysRemaining(DateTime? trialEndsAt) {
+    if (trialEndsAt == null) return 0;
+    final now = DateTime.now();
+    if (now.isAfter(trialEndsAt)) return 0;
+    return trialEndsAt.difference(now).inDays + 1;
+  }
+
+  /// Start 7-day trial
+  Future<bool> startTrial() async {
+    if (!_configured) return false;
+    try {
+      AppLogger.info('revenuecat: starting 7-day trial');
+      // Trial is tracked in Supabase profiles table
+      return true;
+    } catch (error, stackTrace) {
+      AppLogger.error('revenuecat.startTrial', error, stackTrace);
+      return false;
+    }
+  }
+
   Future<bool> isPremium() async {
     if (!_configured) return false;
     try {
       final info = await Purchases.getCustomerInfo();
       _lastCustomerInfo = info;
-      return isPremiumFrom(info);
+      final premium = isPremiumFrom(info);
+      AppLogger.info(
+          'revenuecat: isPremium=$premium, entitlements=${info.entitlements.active.keys}');
+      return premium;
     } catch (error, stackTrace) {
       AppLogger.error('revenuecat.isPremium', error, stackTrace);
       return false;
@@ -114,6 +151,7 @@ class RevenueCatService {
         if (!_customerInfoController.isClosed) {
           _customerInfoController.add(info);
         }
+        AppLogger.info('RevenueCat: logOut completed successfully');
         return;
       }
 
@@ -123,7 +161,9 @@ class RevenueCatService {
       if (!_customerInfoController.isClosed) {
         _customerInfoController.add(result.customerInfo);
       }
-      AppLogger.info('RevenueCat: logIn created=${result.created}');
+      final premium = isPremiumFrom(result.customerInfo);
+      AppLogger.info(
+          'RevenueCat: logIn created=${result.created}, premium=$premium');
     } catch (error, stackTrace) {
       AppLogger.error('revenuecat.syncUser', error, stackTrace);
     }
@@ -132,7 +172,12 @@ class RevenueCatService {
   Future<Offerings?> fetchOfferings() async {
     if (!_configured) return null;
     try {
-      return Purchases.getOfferings();
+      final offerings = await Purchases.getOfferings();
+      final offeringId = offerings.current?.identifier ?? 'none';
+      final packageCount = offerings.current?.availablePackages.length ?? 0;
+      AppLogger.info(
+          'revenuecat: offering=$offeringId, packages=$packageCount');
+      return offerings;
     } catch (error, stackTrace) {
       AppLogger.error('revenuecat.offerings', error, stackTrace);
       return null;
@@ -142,11 +187,15 @@ class RevenueCatService {
   Future<CustomerInfo?> purchase(Package package) async {
     if (!_configured) return null;
     try {
+      AppLogger.info('revenuecat: purchasing ${package.identifier}');
       final info = await Purchases.purchasePackage(package);
       _lastCustomerInfo = info;
       if (!_customerInfoController.isClosed) {
         _customerInfoController.add(info);
       }
+      final premium = isPremiumFrom(info);
+      AppLogger.info(
+          'revenuecat: purchase success ${package.identifier}, premium=$premium');
       return info;
     } on PlatformException catch (error, stackTrace) {
       AppLogger.error('revenuecat.purchase', error, stackTrace);
@@ -160,11 +209,14 @@ class RevenueCatService {
   Future<CustomerInfo?> restorePurchases() async {
     if (!_configured) return null;
     try {
+      AppLogger.info('revenuecat: restoring purchases');
       final info = await Purchases.restorePurchases();
       _lastCustomerInfo = info;
       if (!_customerInfoController.isClosed) {
         _customerInfoController.add(info);
       }
+      final premium = isPremiumFrom(info);
+      AppLogger.info('revenuecat: restore success, premium=$premium');
       return info;
     } catch (error, stackTrace) {
       AppLogger.error('revenuecat.restore', error, stackTrace);

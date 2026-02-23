@@ -13,6 +13,7 @@ import '../../../data/services/revenuecat_service.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
+import 'badges_grid_widget.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -21,8 +22,8 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(profileControllerProvider);
     final settings = ref.watch(settingsControllerProvider);
-    final badgesAsync = ref.watch(userBadgesProvider);
-    final isPremium = ref.watch(premiumControllerProvider);
+    final badgesAsync = ref.watch(earnedBadgesProvider);
+    final isPremium = ref.watch(isPremiumProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
@@ -43,7 +44,8 @@ class ProfileScreen extends ConsumerWidget {
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 8),
-                    Text('Start: ${Formatters.date.format(profile.soberStartDate)}'),
+                    Text(
+                        'Start: ${Formatters.date.format(profile.soberStartDate)}'),
                     if (profile.motivationText != null) ...[
                       const SizedBox(height: 8),
                       Text('Motivation: ${profile.motivationText}'),
@@ -99,18 +101,37 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          SectionCard(
-            child: badgesAsync.when(
-              data: (badges) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text('Badges', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  Text('Earned: ${badges.length}'),
-                ],
+          badgesAsync.when(
+            data: (badges) {
+              if (badges.isEmpty) {
+                return SectionCard(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: <Widget>[
+                          const Text('🎯', style: TextStyle(fontSize: 48)),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No badges earned yet',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
+              return BadgesGrid(badges: badges);
+            },
+            loading: () => const SectionCard(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
               ),
-              loading: () => const Text('Loading badges…'),
-              error: (error, _) => Text('Badges failed: $error'),
+            ),
+            error: (error, _) => SectionCard(
+              child: Text('Badges failed: $error'),
             ),
           ),
           const SizedBox(height: 16),
@@ -118,7 +139,8 @@ class ProfileScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text('Appearance', style: Theme.of(context).textTheme.titleMedium),
+                Text('Appearance',
+                    style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 12),
                 DropdownButton<ThemeMode>(
                   value: settings.themeMode,
@@ -139,7 +161,9 @@ class ProfileScreen extends ConsumerWidget {
                   ],
                   onChanged: (value) {
                     if (value != null) {
-                      ref.read(settingsControllerProvider.notifier).setThemeMode(value);
+                      ref
+                          .read(settingsControllerProvider.notifier)
+                          .setThemeMode(value);
                     }
                   },
                 ),
@@ -188,7 +212,9 @@ class ProfileScreen extends ConsumerWidget {
                 OutlinedButton(
                   onPressed: () async {
                     await ref.read(authRepositoryProvider).signOut();
-                    await ref.read(settingsControllerProvider.notifier).setOnboardingComplete(false);
+                    await ref
+                        .read(settingsControllerProvider.notifier)
+                        .setOnboardingComplete(false);
                   },
                   child: const Text('Log out'),
                 ),
@@ -225,7 +251,8 @@ Future<void> _exportData(BuildContext context, WidgetRef ref) async {
   buffer.writeln('date,content,mood');
   for (final entry in entries) {
     final content = entry.content.replaceAll(',', ' ');
-    buffer.writeln('${entry.entryDate.toIso8601String()},$content,${entry.mood ?? ''}');
+    buffer.writeln(
+        '${entry.entryDate.toIso8601String()},$content,${entry.mood ?? ''}');
   }
   final dir = await getTemporaryDirectory();
   final file = File('${dir.path}/be_sober_export.csv');
