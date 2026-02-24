@@ -39,7 +39,8 @@ final onboardingCompleteProvider = Provider<bool>((ref) {
 
 final premiumControllerProvider =
     StateNotifierProvider<PremiumController, PremiumStatus>((ref) {
-  return PremiumController(RevenueCatService.instance);
+  final client = ref.watch(supabaseClientProvider);
+  return PremiumController(RevenueCatService.instance, client);
 });
 
 /// Helper: true if user has premium access (paid or active trial)

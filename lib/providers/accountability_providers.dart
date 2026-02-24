@@ -78,8 +78,8 @@ final logCravingProvider =
 final copingStrategiesProvider =
     FutureProvider<List<CopingStrategy>>((ref) async {
   final repo = ref.watch(premiumFeaturesRepositoryProvider);
-  final isPremium = ref.watch(premiumControllerProvider);
-  return repo.getCopingStrategies(premiumOnly: !isPremium.isPremium);
+  final status = ref.watch(premiumControllerProvider);
+  return repo.getCopingStrategies(premiumOnly: !status.hasAccess);
 });
 
 // ========== RECOVERY WORKBOOK ==========
@@ -87,8 +87,8 @@ final copingStrategiesProvider =
 final recoveryModulesProvider =
     FutureProvider<List<RecoveryWorkbookModule>>((ref) async {
   final repo = ref.watch(premiumFeaturesRepositoryProvider);
-  final isPremium = ref.watch(premiumControllerProvider);
-  return repo.getRecoveryModules(premiumOnly: !isPremium.isPremium);
+  final status = ref.watch(premiumControllerProvider);
+  return repo.getRecoveryModules(premiumOnly: !status.hasAccess);
 });
 
 final moduleProgressProvider =

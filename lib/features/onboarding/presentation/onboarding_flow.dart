@@ -103,6 +103,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         initialIsSignUp: true,
       ),
     );
+    if (!mounted) return;
     if (result == true) {
       await _completeOnboarding();
     } else {
@@ -233,20 +234,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       await profileRepo.createProfile(profile);
       await settings.setOnboardingComplete(true);
       await profileController.load();
-      // Auto-start the free trial for new accounts
-      final premiumController = ref.read(premiumControllerProvider.notifier);
-      final startedTrial = await premiumController.startTrial();
-      if (startedTrial) {
-        AppLogger.info('🎉 [ONBOARDING] 3-day trial started');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('🎉 3‑day premium trial activated!'),
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
-      }
       if (mounted) {
         context.go('/');
       }

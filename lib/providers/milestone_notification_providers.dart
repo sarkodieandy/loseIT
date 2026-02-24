@@ -41,8 +41,8 @@ final notificationHistoryProvider =
 final milestoneTemplatesProvider =
     FutureProvider<List<MilestoneTemplate>>((ref) async {
   final repo = ref.watch(premiumFeaturesRepositoryProvider);
-  final isPremium = ref.watch(premiumControllerProvider);
-  return repo.getMilestoneTemplates(premiumOnly: !isPremium.isPremium);
+  final status = ref.watch(premiumControllerProvider);
+  return repo.getMilestoneTemplates(premiumOnly: !status.hasAccess);
 });
 
 // ========== REWARD MARKETPLACE ==========

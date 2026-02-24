@@ -75,148 +75,121 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
     return Scaffold(
       backgroundColor: TribeColors.bgTop(context),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.white,
-        title: Text('New Group'),
+        title: const Text('New Group'),
       ),
       body: PremiumGate(
         lockedTitle: 'Create Your Own Group',
         lockedDescription:
             'Premium lets you start a private accountability group with chat.',
-        child: Stack(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
           children: <Widget>[
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: <Color>[
-                      TribeColors.bgTop(context),
-                      TribeColors.bgBottom(context),
-                    ],
-                  ),
+            Text(
+              'Create a small accountability group. Keep it anonymous, supportive, and focused.',
+              style: TextStyle(
+                color: TribeColors.muted(context),
+                fontSize: 16,
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Group name',
+                      style: TextStyle(
+                        color: TribeColors.muted(context),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        hintText: 'Weekend Shield',
+                        hintStyle: TextStyle(color: TribeColors.muted(context)),
+                        filled: true,
+                        fillColor: TribeColors.field(context),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Check-in label (optional)',
+                      style: TextStyle(
+                        color: TribeColors.muted(context),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _labelController,
+                      decoration: InputDecoration(
+                        hintText: 'Daily 9pm check-in',
+                        hintStyle: TextStyle(color: TribeColors.muted(context)),
+                        filled: true,
+                        fillColor: TribeColors.field(context),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            ListView(
-              padding: const EdgeInsets.all(20),
-              children: <Widget>[
-                Text(
-                  'Create a small accountability group. Keep it anonymous, supportive, and focused.',
-                  style: TextStyle(
-                    color: TribeColors.muted(context),
+            const SizedBox(height: 18),
+            SizedBox(
+              height: 54,
+              child: FilledButton(
+                onPressed: _saving ? null : _create,
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w800,
                     fontSize: 16,
-                    height: 1.35,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: TribeColors.card(context),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: TribeColors.cardBorder(context)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        'Group name',
-                        style: TextStyle(
-                          color: TribeColors.muted(context),
-                          fontWeight: FontWeight.w700,
+                child: _saving
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: Theme.of(context).colorScheme.onPrimary,
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _nameController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'Weekend Shield',
-                          hintStyle: TextStyle(color: TribeColors.muted(context)),
-                          filled: true,
-                          fillColor: TribeColors.field(context),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Check-in label (optional)',
-                        style: TextStyle(
-                          color: TribeColors.muted(context),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _labelController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'Daily 9pm check-in',
-                          hintStyle: TextStyle(color: TribeColors.muted(context)),
-                          filled: true,
-                          fillColor: TribeColors.field(context),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  height: 54,
-                  child: FilledButton(
-                    onPressed: _saving ? null : _create,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: TribeColors.accent(context),
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      textStyle: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                      ),
-                    ),
-                    child: _saving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: Colors.black,
-                            ),
-                          )
-                        : Text('Create group'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'You will be joined automatically. Keep personal details out of group names.',
-                  style: TextStyle(
-                    color: TribeColors.muted(context),
-                    fontWeight: FontWeight.w600,
-                    height: 1.35,
-                  ),
-                ),
-              ],
+                      )
+                    : const Text('Create group'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You will be joined automatically. Keep personal details out of group names.',
+              style: TextStyle(
+                color: TribeColors.muted(context),
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
             ),
           ],
         ),

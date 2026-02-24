@@ -121,7 +121,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isPremium = ref.watch(premiumControllerProvider);
+    final status = ref.watch(premiumControllerProvider);
     final configured = RevenueCatService.instance.isConfigured;
 
     final offering = _offerings?.current;
@@ -130,6 +130,19 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Go Premium'),
+        leading: IconButton(
+          tooltip: 'Close',
+          onPressed: _purchasing
+              ? null
+              : () {
+                  if (Navigator.of(context).canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/');
+                  }
+                },
+          icon: const Icon(Icons.close),
+        ),
         actions: <Widget>[
           IconButton(
             tooltip: 'Refresh offerings',
@@ -212,13 +225,29 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                         text: 'Priority customer support',
                       ),
                       const SizedBox(height: 10),
-                      if (isPremium.hasAccess)
+                      if (status.isPremium)
                         Text(
                           'You\'re premium.',
-                          style:
-                              Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        )
+                      else if (status.isTrialActive)
+                        Text(
+                          'Trial active (${status.trialDaysRemaining} days left)',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        )
+                      else
+                        Text(
+                          'Your 3‑day trial has ended.',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                     ],
                   ),
@@ -236,45 +265,6 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                     ),
                   ),
                 ],
-
-                const SizedBox(height: 8),
-
-                // trial offer button for new users
-                Consumer(builder: (context, ref, _) {
-                  final isPremium = ref.watch(isPremiumProvider);
-                  final trialOnly = ref.watch(isTrialOnlyProvider);
-                  final daysLeft = ref.watch(trialDaysProvider);
-                  if (!isPremium && !trialOnly) {
-                    return ElevatedButton(
-                      onPressed: _purchasing
-                          ? null
-                          : () async {
-                              final ok = await ref
-                                  .read(premiumControllerProvider.notifier)
-                                  .startTrial();
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text(ok
-                                          ? '3‑day free trial started!'
-                                          : 'Trial could not be started.')),
-                                );
-                              }
-                              if (ok) {
-                                _load();
-                              }
-                            },
-                      child: const Text('Start 3‑Day Free Trial'),
-                    );
-                  }
-                  if (trialOnly) {
-                    return Text(
-                      'Trial active ($daysLeft days left)',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    );
-                  }
-                  return const SizedBox.shrink();
-                }),
 
                 const SizedBox(height: 8),
 

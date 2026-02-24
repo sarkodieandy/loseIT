@@ -22,7 +22,7 @@ class PremiumStatus {
 }
 
 class PremiumController extends StateNotifier<PremiumStatus> {
-  PremiumController(this._service)
+  PremiumController(this._service, this._client)
       : super(const PremiumStatus(
           isPremium: false,
           isTrialActive: false,
@@ -31,68 +31,68 @@ class PremiumController extends StateNotifier<PremiumStatus> {
     _init();
   }
 
+  /// Trial duration (3 days) starting from account creation.
+  static const Duration trialDuration = Duration(days: 3);
+
   final RevenueCatService _service;
-  StreamSubscription<CustomerInfo>? _sub;
+  final SupabaseClient _client;
+
+  StreamSubscription<CustomerInfo>? _customerInfoSub;
+  StreamSubscription<AuthState>? _authSub;
+  Timer? _trialTimer;
 
   Future<void> _init() async {
-    // No key configured: check trial only
-    try {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) {
-        state = const PremiumStatus(
-          isPremium: false,
-          isTrialActive: false,
-          trialDaysRemaining: 0,
-        );
-        return;
-      }
+    // Keep status fresh on app launch and whenever the auth session changes.
+    _authSub = _client.auth.onAuthStateChange.listen((_) {
+      unawaited(_updateStatus());
+    });
 
-      // first populate current state from server
-      await _updateStatus();
-
-      // automatically start a trial for completely new accounts
-      // (this covers cases where onboarding did not explicitly call
-      //  startTrial, e.g. silent anonymous sessions or email sign‑ins)
-      if (!state.hasAccess) {
-        // query the profile row; if it doesn't exist yet we wait for
-        // onboarding to create it and then start the trial there.
-        final profiles = await Supabase.instance.client
-            .from('profiles')
-            .select('trial_used')
-            .eq('id', user.id)
-            .limit(1);
-
-        if (profiles.isNotEmpty) {
-          final used = (profiles[0]['trial_used'] as bool? ?? false);
-          if (!used) {
-            await startTrial();
-          }
-        }
-      }
-
-      if (_service.isConfigured) {
-        _sub = _service.customerInfoStream.listen((_) {
-          _updateStatus();
-        });
-      }
-    } catch (error, stackTrace) {
-      AppLogger.error('premium.init', error, stackTrace);
-      state = const PremiumStatus(
-        isPremium: false,
-        isTrialActive: false,
-        trialDaysRemaining: 0,
-      );
+    if (_service.isConfigured) {
+      _customerInfoSub = _service.customerInfoStream.listen((_) {
+        unawaited(_updateStatus());
+      });
     }
+
+    await _updateStatus();
+  }
+
+  DateTime? _trialStartUtcFrom(User user) {
+    // Trial start date is stored securely in Supabase Auth:
+    // auth.users.created_at (exposed via user.createdAt).
+    final raw = user.createdAt.trim();
+    if (raw.isEmpty) return null;
+    try {
+      return DateTime.parse(raw).toUtc();
+    } catch (error) {
+      AppLogger.warn('premium: failed to parse user.createdAt ($raw): $error');
+      return null;
+    }
+  }
+
+  int _trialDaysRemaining({
+    required DateTime nowUtc,
+    required DateTime trialEndsUtc,
+  }) {
+    if (!nowUtc.isBefore(trialEndsUtc)) return 0;
+    return trialEndsUtc.difference(nowUtc).inDays + 1;
+  }
+
+  void _scheduleTrialExpiryCheck(DateTime nowUtc, DateTime trialEndsUtc) {
+    _trialTimer?.cancel();
+    final delay = trialEndsUtc.difference(nowUtc);
+    if (delay.isNegative) return;
+
+    // Add a small buffer so we don't bounce around the boundary.
+    _trialTimer = Timer(delay + const Duration(seconds: 1), () {
+      unawaited(_updateStatus());
+    });
   }
 
   Future<void> _updateStatus() async {
     try {
-      // Check paid subscription
-      final isPremium = _service.isConfigured && await _service.isPremium();
-
-      // Check trial status from Supabase
-      final user = Supabase.instance.client.auth.currentUser;
+      final user = _client.auth.currentUser;
       if (user == null) {
+        _trialTimer?.cancel();
         state = const PremiumStatus(
           isPremium: false,
           isTrialActive: false,
@@ -101,21 +101,28 @@ class PremiumController extends StateNotifier<PremiumStatus> {
         return;
       }
 
-      final profiles = await Supabase.instance.client
-          .from('profiles')
-          .select('trial_ends_at, trial_used')
-          .eq('id', user.id)
-          .limit(1);
+      // Check paid subscription.
+      final isPremium = _service.isConfigured &&
+          ((_service.lastCustomerInfo != null &&
+                  _service.isPremiumFrom(_service.lastCustomerInfo!))
+              ? true
+              : await _service.isPremium());
 
-      DateTime? trialEndsAt;
-      if (profiles.isNotEmpty) {
-        trialEndsAt = profiles[0]['trial_ends_at'] != null
-            ? DateTime.parse(profiles[0]['trial_ends_at'] as String)
-            : null;
+      // If not premium, allow trial based on account creation time.
+      final nowUtc = DateTime.now().toUtc();
+      final trialStartUtc = _trialStartUtcFrom(user);
+      final trialEndsUtc = trialStartUtc?.add(trialDuration);
+
+      var isTrialActive = false;
+      var daysRemaining = 0;
+      if (!isPremium && trialEndsUtc != null && nowUtc.isBefore(trialEndsUtc)) {
+        isTrialActive = true;
+        daysRemaining =
+            _trialDaysRemaining(nowUtc: nowUtc, trialEndsUtc: trialEndsUtc);
+        _scheduleTrialExpiryCheck(nowUtc, trialEndsUtc);
+      } else {
+        _trialTimer?.cancel();
       }
-
-      final isTrialActive = !isPremium && _service.isTrialActive(trialEndsAt);
-      final daysRemaining = _service.getTrialDaysRemaining(trialEndsAt);
 
       state = PremiumStatus(
         isPremium: isPremium,
@@ -131,45 +138,11 @@ class PremiumController extends StateNotifier<PremiumStatus> {
     }
   }
 
-  /// Start 3-day trial
-  Future<bool> startTrial() async {
-    try {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) return false;
-
-      // Check if trial already used
-      final profiles = await Supabase.instance.client
-          .from('profiles')
-          .select('trial_used')
-          .eq('id', user.id)
-          .limit(1);
-
-      if (profiles.isNotEmpty &&
-          (profiles[0]['trial_used'] as bool? ?? false)) {
-        AppLogger.warn('premium: trial already used');
-        return false;
-      }
-
-      // Set trial to end in 3 days
-      final trialEndsAt = DateTime.now().add(const Duration(days: 3));
-
-      await Supabase.instance.client.from('profiles').update({
-        'trial_ends_at': trialEndsAt.toIso8601String(),
-        'trial_used': true,
-      }).eq('id', user.id);
-
-      await _updateStatus();
-      AppLogger.info('premium: 3-day trial started');
-      return true;
-    } catch (error, stackTrace) {
-      AppLogger.error('premium.startTrial', error, stackTrace);
-      return false;
-    }
-  }
-
   @override
   void dispose() {
-    _sub?.cancel();
+    _customerInfoSub?.cancel();
+    _authSub?.cancel();
+    _trialTimer?.cancel();
     super.dispose();
   }
 }

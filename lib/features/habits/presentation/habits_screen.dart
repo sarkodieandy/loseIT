@@ -55,17 +55,17 @@ class HabitsScreen extends ConsumerWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: PremiumGate(
-            lockedTitle: 'Multi-habit tracking',
-            lockedDescription: 'Upgrade to add more habits.',
-            child: PrimaryButton(
-              label: 'Add Habit',
-              onPressed: () =>
-                  _showAddHabitDialog(context, ref, isPremium.isPremium),
+            child: PremiumGate(
+              lockedTitle: 'Multi-habit tracking',
+              lockedDescription: 'Upgrade to add more habits.',
+              child: PrimaryButton(
+                label: 'Add Habit',
+                onPressed: () =>
+                    _showAddHabitDialog(context, ref, isPremium.hasAccess),
+              ),
             ),
           ),
         ),
-      ),
     );
   }
 

@@ -83,7 +83,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                   key: const ValueKey('fab_feed'),
                   heroTag: 'tribe_post_fab',
                   backgroundColor: TribeColors.accent(context),
-                  foregroundColor: Colors.black,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   onPressed: () => context.push('/community/new'),
                   child: const Icon(Icons.add),
                 ),
@@ -91,9 +91,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                   key: const ValueKey('fab_groups'),
                   heroTag: 'tribe_group_fab',
                   backgroundColor: TribeColors.accent(context),
-                  foregroundColor: Colors.black,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   onPressed: () {
-                    if (!isPremium.isPremium) {
+                    if (!isPremium.hasAccess) {
                       context.push('/paywall');
                       return;
                     }
@@ -905,7 +905,7 @@ class _IconCircleButton extends StatelessWidget {
         height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.black.withValues(alpha: 0.06),
+          color: TribeColors.chip(context),
           border: Border.all(color: TribeColors.cardBorder(context)),
         ),
         child: Icon(icon, color: TribeColors.muted(context), size: 20),
@@ -928,7 +928,7 @@ class _Pill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.06),
+        color: TribeColors.chip(context),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: TribeColors.cardBorder(context)),
       ),
@@ -967,7 +967,7 @@ class _TribeTopTabs extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.04),
+        color: TribeColors.chip(context),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: TribeColors.cardBorder(context)),
       ),
@@ -1145,7 +1145,9 @@ class _ChoicePill extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: selected ? Colors.black : TribeColors.muted(context),
+              color: selected
+                  ? Theme.of(context).colorScheme.onPrimary
+                  : TribeColors.muted(context),
               fontWeight: FontWeight.w800,
               fontSize: 14,
             ),
@@ -1384,7 +1386,84 @@ class _Avatar extends StatelessWidget {
           ],
         ),
       ),
-      child: const Icon(Icons.person, color: Colors.black, size: 22),
+      child: const Icon(Icons.person, color: Colors.white, size: 22),
+    );
+  }
+}
+
+class _GroupBadge extends StatelessWidget {
+  const _GroupBadge({
+    required this.title,
+    required this.seed,
+    this.imageUrl,
+    this.size = 34,
+  });
+
+  final String title;
+  final String seed;
+  final String? imageUrl;
+  final double size;
+
+  String _initials(String input) {
+    final parts = input
+        .trim()
+        .split(RegExp(r'\\s+'))
+        .where((p) => p.trim().isNotEmpty)
+        .toList(growable: false);
+    if (parts.isEmpty) return 'G';
+    if (parts.length == 1) return parts.first.characters.first.toUpperCase();
+    final a = parts[0].characters.first.toUpperCase();
+    final b = parts[1].characters.first.toUpperCase();
+    return '$a$b';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmedUrl = imageUrl?.trim() ?? '';
+    if (trimmedUrl.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          trimmedUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _fallback(context),
+        ),
+      );
+    }
+    return _fallback(context);
+  }
+
+  Widget _fallback(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final hash = seed.codeUnits.fold<int>(0, (a, b) => a + b);
+    final t = (hash % 100) / 100.0;
+    final a = Color.lerp(scheme.primary, scheme.secondary, 0.18 + (0.58 * t))!;
+    final b = Color.lerp(scheme.secondary, scheme.primary, 0.12 + (0.44 * t))!;
+    final initials = _initials(title);
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[a, b],
+        ),
+      ),
+      child: Center(
+        child: Text(
+          initials,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.4,
+            fontSize: size * 0.36,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1493,71 +1572,63 @@ class _TribeGroupCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: <Color>[
-              TribeColors.accent(context).withValues(alpha: isDark ? 0.16 : 0.10),
+              TribeColors.accent(context).withValues(alpha: isDark ? 0.12 : 0.10),
               TribeColors.card(context),
             ],
           ),
           border: Border.all(color: TribeColors.cardBorder(context)),
-          boxShadow: isDark
-              ? null
-              : <BoxShadow>[
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 18,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Row(
               children: <Widget>[
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isDark
-                        ? Colors.black.withValues(alpha: 0.20)
-                        : Colors.white.withValues(alpha: 0.60),
-                    border: Border.all(color: TribeColors.cardBorder(context)),
-                  ),
-                  child: Icon(
-                    Icons.shield_outlined,
-                    color: TribeColors.textPrimary(context),
-                    size: 18,
-                  ),
+                _GroupBadge(
+                  title: challenge.title,
+                  seed: challenge.id,
+                  imageUrl: challenge.badgeImageUrl,
+                  size: 34,
                 ),
                 const Spacer(),
                 Icon(
-                  Icons.arrow_outward,
+                  Icons.arrow_forward_rounded,
                   size: 18,
                   color: TribeColors.muted(context),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               challenge.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: TribeColors.textPrimary(context),
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                fontSize: 17,
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              '${challenge.memberCount} members',
-              style: TextStyle(
-                color: TribeColors.muted(context),
-                fontWeight: FontWeight.w600,
-              ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  Icons.people_outline,
+                  size: 16,
+                  color: TribeColors.muted(context),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${challenge.memberCount} members',
+                  style: TextStyle(
+                    color: TribeColors.muted(context),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
             const Spacer(),
-            if (hasSchedule) _SmallPill(label: schedule),
+            if (hasSchedule) _ScheduleLine(label: schedule),
           ],
         ),
       ),
@@ -1565,30 +1636,34 @@ class _TribeGroupCard extends StatelessWidget {
   }
 }
 
-class _SmallPill extends StatelessWidget {
-  const _SmallPill({required this.label});
+class _ScheduleLine extends StatelessWidget {
+  const _ScheduleLine({required this.label});
 
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: TribeColors.chip(context),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: TribeColors.cardBorder(context)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: TribeColors.textPrimary(context),
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
+    return Row(
+      children: <Widget>[
+        Icon(
+          Icons.schedule,
+          size: 14,
+          color: TribeColors.muted(context),
         ),
-      ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: TribeColors.muted(context),
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1731,143 +1806,103 @@ class _TribeGroupRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final schedule = challenge.description?.trim();
     final hasSchedule = schedule != null && schedule.isNotEmpty;
+    final metaParts = <String>[
+      '${challenge.memberCount} members',
+      if (hasSchedule) schedule,
+    ];
+    final meta = metaParts.join(' • ');
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Ink(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: TribeColors.card(context),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: TribeColors.cardBorder(context)),
-          boxShadow: isDark
-              ? null
-              : <BoxShadow>[
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 14,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-        ),
-        child: Row(
-          children: <Widget>[
-            Stack(
-              clipBehavior: Clip.none,
-              children: <Widget>[
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: TribeColors.accent(context).withValues(
-                      alpha: isDark ? 0.12 : 0.10,
-                    ),
-                    border: Border.all(color: TribeColors.cardBorder(context)),
-                  ),
-                  child: Icon(
-                    Icons.shield_outlined,
-                    color: isDark
-                        ? TribeColors.accent(context)
-                        : TribeColors.textPrimary(context),
-                  ),
-                ),
-                if (hasUnread)
-                  Positioned(
-                    right: -2,
-                    top: -2,
-                    child: UnreadDot(
-                      size: 12,
-                      color: TribeColors.red(context),
-                      borderColor: TribeColors.card(context),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: <Widget>[
+              Stack(
+                clipBehavior: Clip.none,
                 children: <Widget>[
-                  Text(
-                    challenge.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: TribeColors.textPrimary(context),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                    ),
+                  _GroupBadge(
+                    title: challenge.title,
+                    seed: challenge.id,
+                    imageUrl: challenge.badgeImageUrl,
+                    size: 46,
                   ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: <Widget>[
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Icon(
-                            Icons.people_outline,
-                            size: 16,
-                            color: TribeColors.muted(context),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${challenge.memberCount} members',
-                            style: TextStyle(
-                              color: TribeColors.muted(context),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                  if (hasUnread)
+                    Positioned(
+                      right: -2,
+                      top: -2,
+                      child: UnreadDot(
+                        size: 12,
+                        color: TribeColors.red(context),
+                        borderColor: TribeColors.card(context),
                       ),
-                      if (hasSchedule) _SmallPill(label: schedule),
-                    ],
-                  ),
+                    ),
                 ],
               ),
-            ),
-            const SizedBox(width: 12),
-            joined
-                ? FilledButton.tonal(
-                    onPressed: onJoin,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: TribeColors.chip(context),
-                      foregroundColor: TribeColors.textPrimary(context),
-                      minimumSize: const Size(0, 42),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      challenge.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      meta,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: TribeColors.muted(context),
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              joined
+                  ? FilledButton.tonal(
+                      onPressed: onJoin,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 42),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      child: const Text(
+                        'Open',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    )
+                  : FilledButton(
+                      onPressed: onJoin,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 42),
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      child: const Text(
+                        'Join',
+                        style: TextStyle(fontWeight: FontWeight.w900),
                       ),
                     ),
-                    child: const Text(
-                      'Open',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  )
-                : FilledButton(
-                    onPressed: onJoin,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: TribeColors.accent(context),
-                      foregroundColor: Colors.black,
-                      minimumSize: const Size(0, 42),
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                    child: const Text(
-                      'Join',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                  ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1910,7 +1945,11 @@ class _TribeHighlightCard extends StatelessWidget {
               shape: BoxShape.circle,
               color: TribeColors.accent(context),
             ),
-            child: Icon(icon, color: Colors.black, size: 22),
+            child: Icon(
+              icon,
+              color: Theme.of(context).colorScheme.onPrimary,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(

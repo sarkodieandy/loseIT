@@ -23,12 +23,11 @@ class _ChatColors {
   static Color muted(BuildContext context) => TribeColors.muted(context);
   static Color accent(BuildContext context) => TribeColors.accent(context);
   static Color field(BuildContext context) => TribeColors.field(context);
+  static Color textPrimary(BuildContext context) => TribeColors.textPrimary(context);
 
   static Color mineBubble(BuildContext context) => TribeColors.accent(context);
   static Color otherBubble(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF10161C)
-          : const Color(0xFF10161C);
+      Theme.of(context).colorScheme.surfaceContainerHighest;
 }
 
 class GroupChatScreen extends ConsumerStatefulWidget {
@@ -46,27 +45,8 @@ class GroupChatScreen extends ConsumerStatefulWidget {
 class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
   final _controller = TextEditingController();
   bool _sending = false;
+  bool _hasText = false;
   DateTime? _lastSeenUtc;
-
-  @override
-  void initState() {
-    super.initState();
-    ref.listen<AsyncValue<List<GroupMessage>>>(
-      groupMessagesProvider(widget.groupId),
-      (previous, next) {
-        final session = ref.read(sessionProvider);
-        final messages = next.asData?.value;
-        if (session == null || messages == null || messages.isEmpty) return;
-        final latestUtc = messages.first.createdAt.toUtc();
-        if (_lastSeenUtc != null && !latestUtc.isAfter(_lastSeenUtc!)) return;
-        _lastSeenUtc = latestUtc;
-        unawaited(_markSeen(
-          userId: session.user.id,
-          seenAt: latestUtc,
-        ));
-      },
-    );
-  }
 
   @override
   void dispose() {
@@ -106,6 +86,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
             content: text,
           );
       _controller.clear();
+      _hasText = false;
       HapticFeedback.selectionClick();
     } catch (error, stackTrace) {
       AppLogger.error('groupChat.send', error, stackTrace);
@@ -114,12 +95,34 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
         SnackBar(content: Text(error.toString())),
       );
     } finally {
-      if (mounted) setState(() => _sending = false);
+      if (mounted) {
+        setState(() {
+          _sending = false;
+          _hasText = _controller.text.trim().isNotEmpty;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Mark messages as seen whenever the latest message changes.
+    ref.listen<AsyncValue<List<GroupMessage>>>(
+      groupMessagesProvider(widget.groupId),
+      (previous, next) {
+        final session = ref.read(sessionProvider);
+        final messages = next.asData?.value;
+        if (session == null || messages == null || messages.isEmpty) return;
+        final latestUtc = messages.first.createdAt.toUtc();
+        if (_lastSeenUtc != null && !latestUtc.isAfter(_lastSeenUtc!)) return;
+        _lastSeenUtc = latestUtc;
+        unawaited(_markSeen(
+          userId: session.user.id,
+          seenAt: latestUtc,
+        ));
+      },
+    );
+
     final session = ref.watch(sessionProvider);
     final groupAsync = ref.watch(groupProvider(widget.groupId));
     final joinedAsync = ref.watch(userChallengesProvider);
@@ -128,14 +131,17 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
     final isJoined = joinedAsync.asData?.value
             .any((item) => item.challengeId == widget.groupId) ??
         false;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final canSend = isJoined && session != null && !_sending && _hasText;
 
     return Scaffold(
       backgroundColor: _ChatColors.bgTop(context),
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
+        foregroundColor: _ChatColors.textPrimary(context),
         title: groupAsync.maybeWhen(
           data: (group) => Text(
             group?.title ?? 'Group chat',
@@ -168,22 +174,46 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                 child: _InfoCard(
                   child: Row(
                     children: <Widget>[
-                      Icon(Icons.shield_outlined, color: _ChatColors.muted(context)),
+                      Icon(
+                        Icons.shield_outlined,
+                        color: _ChatColors.muted(context),
+                      ),
                       const SizedBox(width: 10),
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Anonymous group chat. No names. No personal info.',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: _ChatColors.textPrimary(context),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
-                      Text(
-                        isJoined ? 'Member' : 'Join to chat',
-                        style: TextStyle(
-                          color: _ChatColors.muted(context),
-                          fontWeight: FontWeight.w700,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isJoined
+                              ? TribeColors.green(context).withValues(alpha: 0.14)
+                              : TribeColors.chip(context),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: isJoined
+                                ? TribeColors.green(context)
+                                    .withValues(alpha: 0.35)
+                                : _ChatColors.cardBorder(context),
+                          ),
+                        ),
+                        child: Text(
+                          isJoined ? 'Member' : 'Join to chat',
+                          style: TextStyle(
+                            color: isJoined
+                                ? TribeColors.green(context)
+                                : _ChatColors.muted(context),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ],
@@ -195,15 +225,41 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                   data: (messages) {
                     if (messages.isEmpty) {
                       return Center(
-                        child: Text(
-                          'No messages yet.',
-                          style: TextStyle(color: _ChatColors.muted(context)),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Icon(
+                              Icons.forum_outlined,
+                              size: 46,
+                              color: _ChatColors.muted(context)
+                                  .withValues(alpha: 0.8),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'No messages yet.',
+                              style:
+                                  TextStyle(color: _ChatColors.muted(context)),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Be the first to check in.',
+                              style: TextStyle(
+                                color: _ChatColors.muted(context)
+                                    .withValues(alpha: 0.75),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                       );
                     }
                     return ListView.builder(
                       reverse: true,
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      physics: const BouncingScrollPhysics(),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       itemCount: messages.length,
                       itemBuilder: (context, index) {
                         final message = messages[index];
@@ -251,7 +307,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                       child: FilledButton(
                         style: FilledButton.styleFrom(
                           backgroundColor: _ChatColors.accent(context),
-                          foregroundColor: Colors.black,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onPrimary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -278,59 +335,103 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                     duration: const Duration(milliseconds: 180),
                     curve: Curves.easeOut,
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    child: Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            textInputAction: TextInputAction.send,
-                            onSubmitted: (_) => _send(),
-                            style: const TextStyle(color: Colors.white),
-                            decoration: InputDecoration(
-                              hintText: 'Message…',
-                              hintStyle: TextStyle(color: _ChatColors.muted(context)),
-                              filled: true,
-                              fillColor: _ChatColors.field(context),
-                              border: OutlineInputBorder(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _ChatColors.card(context)
+                            .withValues(alpha: isDark ? 0.92 : 0.96),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: _ChatColors.cardBorder(context)),
+                        boxShadow: isDark
+                            ? null
+                            : <BoxShadow>[
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: TextField(
+                              controller: _controller,
+                              textInputAction: TextInputAction.send,
+                              onChanged: (value) {
+                                final hasText = value.trim().isNotEmpty;
+                                if (hasText == _hasText) return;
+                                setState(() => _hasText = hasText);
+                              },
+                              onSubmitted: (_) {
+                                if (canSend) _send();
+                              },
+                              style: TextStyle(
+                                color: _ChatColors.textPrimary(context),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Message…',
+                                hintStyle:
+                                    TextStyle(color: _ChatColors.muted(context)),
+                                border: InputBorder.none,
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          InkWell(
+                            onTap: canSend ? _send : null,
+                            borderRadius: BorderRadius.circular(18),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 140),
+                              curve: Curves.easeOut,
+                              width: 46,
+                              height: 46,
+                              decoration: BoxDecoration(
+                                color: canSend
+                                    ? _ChatColors.accent(context)
+                                    : _ChatColors.field(context),
                                 borderRadius: BorderRadius.circular(18),
-                                borderSide: BorderSide.none,
+                                border: Border.all(
+                                  color: canSend
+                                      ? Theme.of(context)
+                                          .colorScheme
+                                          .onPrimary
+                                          .withValues(alpha: 0.18)
+                                      : _ChatColors.cardBorder(context),
+                                ),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 12,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        InkWell(
-                          onTap: _sending ? null : _send,
-                          borderRadius: BorderRadius.circular(18),
-                          child: Ink(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: _ChatColors.accent(context),
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Center(
-                              child: _sending
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.black,
+                              child: Center(
+                                child: _sending
+                                    ? SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: canSend
+                                              ? Theme.of(context)
+                                                  .colorScheme
+                                                  .onPrimary
+                                              : _ChatColors.muted(context),
+                                        ),
+                                      )
+                                    : Icon(
+                                        Icons.arrow_upward_rounded,
+                                        color: canSend
+                                            ? Theme.of(context)
+                                                .colorScheme
+                                                .onPrimary
+                                            : _ChatColors.muted(context),
                                       ),
-                                    )
-                                  : const Icon(
-                                      Icons.send,
-                                      color: Colors.black,
-                                    ),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -363,12 +464,22 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _ChatColors.card(context),
+        color: _ChatColors.card(context).withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: _ChatColors.cardBorder(context)),
+        boxShadow: isDark
+            ? null
+            : <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                ),
+              ],
       ),
       child: child,
     );
@@ -390,7 +501,9 @@ class _Bubble extends StatelessWidget {
     final time = Formatters.timeAgo(message.createdAt);
     final bubbleColor =
         mine ? _ChatColors.mineBubble(context) : _ChatColors.otherBubble(context);
-    final textColor = mine ? Colors.black : Colors.white;
+    final onMine = Theme.of(context).colorScheme.onPrimary;
+    final textColor =
+        mine ? onMine : TribeColors.textPrimary(context);
 
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
@@ -409,9 +522,18 @@ class _Bubble extends StatelessWidget {
               ),
               border: Border.all(
                 color: mine
-                    ? Colors.black.withValues(alpha: 0.10)
+                    ? onMine.withValues(alpha: 0.18)
                     : _ChatColors.cardBorder(context),
               ),
+              boxShadow: Theme.of(context).brightness == Brightness.dark
+                  ? null
+                  : <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 12,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -442,7 +564,7 @@ class _Bubble extends StatelessWidget {
                     time,
                     style: TextStyle(
                       color: mine
-                          ? Colors.black.withValues(alpha: 0.55)
+                          ? onMine.withValues(alpha: 0.75)
                           : _ChatColors.muted(context),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,

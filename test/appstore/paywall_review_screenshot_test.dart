@@ -26,12 +26,11 @@ void main() {
     required Size physicalSize,
     required double dpr,
   }) async {
-    final binding = tester.binding;
-    binding.window.devicePixelRatioTestValue = dpr;
-    binding.window.physicalSizeTestValue = physicalSize;
+    tester.view.devicePixelRatio = dpr;
+    tester.view.physicalSize = physicalSize;
     addTearDown(() {
-      binding.window.clearPhysicalSizeTestValue();
-      binding.window.clearDevicePixelRatioTestValue();
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
     });
 
     await tester.pumpWidget(const _PaywallScreenshotApp());

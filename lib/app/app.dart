@@ -16,6 +16,8 @@ class BeSoberApp extends ConsumerStatefulWidget {
 }
 
 class _BeSoberAppState extends ConsumerState<BeSoberApp> {
+  bool _paywallPresented = false;
+
   @override
   void initState() {
     super.initState();
@@ -35,19 +37,34 @@ class _BeSoberAppState extends ConsumerState<BeSoberApp> {
 
     // monitor premium status changes; placing the listener here satisfies
     // Riverpod's debug assertion and is safe even if build is invoked.
-    ref.listen<PremiumStatus?>(premiumControllerProvider, (prev, next) {
+    ref.listen<PremiumStatus>(premiumControllerProvider, (prev, next) {
       // only navigate if user is signed in and onboarding is complete
       final session = ref.read(sessionProvider);
       final onboardingComplete = ref.read(onboardingCompleteProvider);
-      if (session != null &&
-          onboardingComplete &&
-          !(next?.hasAccess ?? false)) {
-        final router = ref.read(routerProvider);
-        // defer navigation to end of frame just in case we're mid-build
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          router.go('/paywall');
-        });
+      if (session == null || !onboardingComplete) {
+        _paywallPresented = false;
+        return;
       }
+
+      if (next.hasAccess) {
+        _paywallPresented = false;
+        return;
+      }
+
+      if (_paywallPresented) return;
+
+      final router = ref.read(routerProvider);
+      final currentPath = router.routerDelegate.currentConfiguration.uri.path;
+      if (currentPath == '/paywall') {
+        _paywallPresented = true;
+        return;
+      }
+
+      _paywallPresented = true;
+      // defer navigation to end of frame just in case we're mid-build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        router.push('/paywall');
+      });
     });
 
     final router = ref.watch(routerProvider);

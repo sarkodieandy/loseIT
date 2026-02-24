@@ -54,12 +54,24 @@ class AuthRepository {
     } on AuthApiException catch (e, stackTrace) {
       // Preserve AuthApiException so callers can handle specific error codes
       // (e.g. anonymous_provider_disabled).
-      AppLogger.error('auth.signInAnonymously', e, stackTrace);
+      if (e.code == 'anonymous_provider_disabled') {
+        AppLogger.warn(
+          '🔐 [AUTH] Anonymous sign-in disabled by backend (code=${e.code}, statusCode=${e.statusCode})',
+        );
+      } else {
+        AppLogger.error('auth.signInAnonymously', e, stackTrace);
+      }
       rethrow;
     } on AuthException catch (error, stackTrace) {
       AppLogger.error('auth.signInAnonymously', error, stackTrace);
+      if (error is AuthRetryableFetchException) {
+        throw AppAuthException(
+          'Unable to reach the server. Please check your connection and try again.',
+          error.code ?? error.statusCode,
+        );
+      }
       throw AppAuthException(
-        'Unable to sign in anonymously. Please check your connection and try again.',
+        error.message,
         error.code ?? error.statusCode,
       );
     } catch (error, stackTrace) {

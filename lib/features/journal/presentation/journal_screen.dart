@@ -19,7 +19,7 @@ class JournalScreen extends ConsumerWidget {
     final habitsAsync = ref.watch(habitsProvider);
     final selectedHabitId = ref.watch(selectedHabitIdProvider);
     final isPremium = ref.watch(premiumControllerProvider);
-    final promptsAsync = ref.watch(promptsProvider(isPremium.isPremium));
+    final promptsAsync = ref.watch(promptsProvider(isPremium.hasAccess));
 
     final habits = habitsAsync.maybeWhen(
       data: (items) => items,

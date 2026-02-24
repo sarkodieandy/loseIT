@@ -115,30 +115,11 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     return Scaffold(
       backgroundColor: TribeColors.bgTop(context),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Text('New Post'),
+        title: const Text('New Post'),
       ),
-      body: Stack(
+      body: ListView(
+        padding: const EdgeInsets.all(20),
         children: <Widget>[
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: <Color>[
-                    TribeColors.bgTop(context),
-                    TribeColors.bgBottom(context),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          ListView(
-            padding: const EdgeInsets.all(20),
-            children: <Widget>[
               Text(
                 'Anonymous support from people on the same path.',
                 style: TextStyle(
@@ -214,8 +195,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 child: TextField(
                   controller: _controller,
                   maxLines: 8,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: TribeColors.textPrimary(context),
                     fontSize: 16,
                     height: 1.35,
                   ),
@@ -238,8 +219,6 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 child: FilledButton(
                   onPressed: _saving ? null : _submit,
                   style: FilledButton.styleFrom(
-                    backgroundColor: TribeColors.accent(context),
-                    foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
                     ),
@@ -249,12 +228,15 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                     ),
                   ),
                   child: _saving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          ),
                         )
-                      : Text('Post'),
+                      : const Text('Post'),
                 ),
               ),
               const SizedBox(height: 8),
@@ -266,8 +248,6 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            ],
-          ),
         ],
       ),
     );
@@ -294,6 +274,7 @@ class _ComposerPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onSelected = Theme.of(context).colorScheme.onPrimary;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
@@ -314,7 +295,7 @@ class _ComposerPill extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? Colors.black : TribeColors.muted(context),
+            color: selected ? onSelected : TribeColors.muted(context),
             fontWeight: FontWeight.w800,
           ),
         ),

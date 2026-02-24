@@ -1,8 +1,9 @@
+import 'dart:async';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../../../core/utils/app_logger.dart';
 
@@ -21,6 +22,9 @@ class FocusScreen extends ConsumerStatefulWidget {
 class _FocusScreenState extends ConsumerState<FocusScreen> {
   final AudioPlayer _player = AudioPlayer();
   String? _currentId;
+  StreamSubscription<void>? _playerCompleteSub;
+
+  static const String _defaultAudioAsset = 'audio.mp3';
 
   late final List<_FocusTrack> _tracks = <_FocusTrack>[
     _FocusTrack(
@@ -28,34 +32,36 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
       title: '90s Breathing Reset',
       duration: '1:30',
       isPremium: false,
-      url: _envOrAsset('FOCUS_TRACK_BREATH', 'assets/audio/breath_free.mp3'),
+      url: _defaultAudioAsset,
     ),
     _FocusTrack(
       id: 'craving_release',
       title: 'Craving Release',
       duration: '5:00',
       isPremium: true,
-      url: _envOrAsset(
-          'FOCUS_TRACK_CRAVING', 'assets/audio/craving_release.mp3'),
+      url: _defaultAudioAsset,
     ),
     _FocusTrack(
       id: 'night_wind_down',
       title: 'Night Wind Down',
       duration: '7:00',
       isPremium: true,
-      url: _envOrAsset(
-          'FOCUS_TRACK_WIND_DOWN', 'assets/audio/night_wind_down.mp3'),
+      url: _defaultAudioAsset,
     ),
   ];
 
-  String _envOrAsset(String key, String assetPath) {
-    final val = dotenv.env[key]?.trim();
-    if (val != null && val.isNotEmpty) return val;
-    return assetPath;
+  @override
+  void initState() {
+    super.initState();
+    _playerCompleteSub = _player.onPlayerComplete.listen((_) {
+      if (!mounted) return;
+      setState(() => _currentId = null);
+    });
   }
 
   @override
   void dispose() {
+    _playerCompleteSub?.cancel();
     _player.dispose();
     super.dispose();
   }
@@ -69,19 +75,18 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
     }
     if (track.url.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Audio not configured. Check .env keys.')),
+        const SnackBar(content: Text('Audio file is missing.')),
       );
       AppLogger.warn('Attempted to play track with empty URL: ${track.id}');
       return;
     }
 
     try {
-      // support asset paths as well as http(s)
-      if (track.url.startsWith('http')) {
-        await _player.play(UrlSource(track.url));
-      } else {
-        await _player.play(AssetSource(track.url));
-      }
+      // All sessions use the bundled asset for production stability.
+      // audioplayers' default AudioCache prefix is `assets/`, so the asset path
+      // must be relative (e.g. `audio.mp3`, not `assets/audio.mp3`).
+      await _player.stop();
+      await _player.play(AssetSource(track.url));
       setState(() => _currentId = track.id);
     } catch (e, st) {
       AppLogger.error('focus.play', e, st);
@@ -95,8 +100,9 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isPremium = ref.watch(premiumControllerProvider);
+    final status = ref.watch(premiumControllerProvider);
     final urgeLogsAsync = ref.watch(urgeLogsProvider);
+    final hasPremiumAccess = status.hasAccess;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Craving Rescue')),
@@ -231,7 +237,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
           ),
           const SizedBox(height: 16),
           ..._tracks.map((track) {
-            final locked = track.isPremium && !isPremium.isPremium;
+            final locked = track.isPremium && !hasPremiumAccess;
             final card = SectionCard(
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -240,7 +246,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
                 trailing: Icon(
                   _currentId == track.id ? Icons.stop : Icons.play_arrow,
                 ),
-                onTap: () => _play(track, isPremium.isPremium),
+                onTap: () => _play(track, hasPremiumAccess),
               ),
             );
             if (!locked) return card;

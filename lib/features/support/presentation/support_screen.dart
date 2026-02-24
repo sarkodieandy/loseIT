@@ -49,7 +49,7 @@ class SupportScreen extends ConsumerWidget {
           error: (error, _) => Center(child: Text('Failed: $error')),
         ),
       ),
-      floatingActionButton: isPremium.isPremium
+      floatingActionButton: isPremium.hasAccess
           ? FloatingActionButton(
               heroTag: 'support_add',
               onPressed: () => _showAddDialog(context, ref),

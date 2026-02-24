@@ -11,16 +11,7 @@ import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/group_chat_unread_providers.dart';
 import '../../../providers/repository_providers.dart';
-
-class _GroupColors {
-  static const Color bgTop = Color(0xFF050607);
-  static const Color bgBottom = Color(0xFF0B0E11);
-  static const Color card = Color(0xFF0E1216);
-  static const Color cardBorder = Color(0x1AFFFFFF);
-  static const Color muted = Color(0xFF9AA3AB);
-  static const Color accent = Color(0xFF26B7FF);
-  static const Color chip = Color(0xFF0D1115);
-}
+import 'tribe_colors.dart';
 
 class GroupDetailScreen extends ConsumerWidget {
   const GroupDetailScreen({
@@ -43,13 +34,12 @@ class GroupDetailScreen extends ConsumerWidget {
         ? ref.watch(groupChatHasUnreadProvider(groupId))
         : false;
 
+    final groupTitle = groupAsync.asData?.value?.title ?? 'Group';
+
     return Scaffold(
-      backgroundColor: _GroupColors.bgTop,
+      backgroundColor: TribeColors.bgTop(context),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.white,
-        title: const Text('Group'),
+        title: Text(groupTitle),
         actions: <Widget>[
           if (isJoined)
             TextButton(
@@ -59,210 +49,189 @@ class GroupDetailScreen extends ConsumerWidget {
                 ref.invalidate(challengesProvider);
                 if (context.mounted) context.pop();
               },
-              style: TextButton.styleFrom(foregroundColor: _GroupColors.muted),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
               child: const Text('Leave'),
             ),
         ],
       ),
-      body: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: <Color>[
-                    _GroupColors.bgTop,
-                    _GroupColors.bgBottom,
-                  ],
-                ),
+      body: groupAsync.when(
+        data: (group) {
+          if (group == null) {
+            return Center(
+              child: Text(
+                'Group not found.',
+                style: TextStyle(color: TribeColors.muted(context)),
               ),
-            ),
-          ),
-          groupAsync.when(
-            data: (group) {
-              if (group == null) {
-                return const Center(
-                  child: Text(
-                    'Group not found.',
-                    style: TextStyle(color: _GroupColors.muted),
-                  ),
-                );
-              }
+            );
+          }
 
-              final memberCount = group.memberCount;
-              final schedule = (group.description?.trim().isNotEmpty ?? false)
-                  ? group.description!.trim()
-                  : null;
+          final memberCount = group.memberCount;
+          final schedule = (group.description?.trim().isNotEmpty ?? false)
+              ? group.description!.trim()
+              : null;
 
-              return ListView(
-                padding: const EdgeInsets.all(20),
-                children: <Widget>[
-                  _Card(
-                    child: Row(
-                      children: <Widget>[
-                        const _Avatar(seed: 'group'),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                group.title,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 18,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '$memberCount members',
-                                style: const TextStyle(
-                                  color: _GroupColors.muted,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              if (schedule != null) ...[
-                                const SizedBox(height: 6),
-                                _Pill(label: schedule),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
+          return ListView(
+            padding: const EdgeInsets.all(20),
+            children: <Widget>[
+              _Card(
+                child: Row(
+                  children: <Widget>[
+                    _GroupBadge(
+                      title: group.title,
+                      seed: group.id,
+                      imageUrl: group.badgeImageUrl,
+                      size: 46,
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  _Card(
-                    child: Row(
-                      children: <Widget>[
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: <Widget>[
-                            const Icon(
-                              Icons.chat_bubble_outline,
-                              color: _GroupColors.muted,
-                            ),
-                            if (hasUnread)
-                              const Positioned(
-                                right: -1,
-                                top: -1,
-                                child: UnreadDot(
-                                  size: 12,
-                                  borderColor: _GroupColors.card,
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Group chat',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => context.push('/groups/$groupId/chat'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: _GroupColors.accent,
-                          ),
-                          child: const Text('Open'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _ChatPreview(groupId: groupId),
-                  const SizedBox(height: 18),
-                  if (session == null)
-                    const _Card(
-                      child: Text(
-                        'Sign in to join and check-in.',
-                        style: TextStyle(color: _GroupColors.muted),
-                      ),
-                    )
-                  else if (!isJoined)
-                    _Card(
-                      child: Row(
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          const Expanded(
-                            child: Text(
-                              'Join this group to start daily check-ins.',
-                              style: TextStyle(
-                                color: Colors.white,
-                                height: 1.35,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                          Text(
+                            group.title,
+                            style:
+                                Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                    ),
                           ),
-                          const SizedBox(width: 12),
-                          FilledButton(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: _GroupColors.accent,
-                              foregroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: <Widget>[
+                              _MetaPill(
+                                icon: Icons.people_outline,
+                                label: '$memberCount members',
                               ),
-                            ),
-                            onPressed: () async {
-                              await ref
-                                  .read(challengesRepositoryProvider)
-                                  .startChallenge(groupId);
-                              ref.invalidate(userChallengesProvider);
-                              ref.invalidate(challengesProvider);
-                            },
-                            child: const Text('Join'),
+                              if (schedule != null)
+                                _MetaPill(
+                                  icon: Icons.schedule,
+                                  label: schedule,
+                                ),
+                            ],
                           ),
                         ],
                       ),
-                    )
-                  else
-                    _CheckinPanel(groupId: groupId),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'Today',
-                    style: TextStyle(
-                      color: _GroupColors.muted,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  _TodayCheckins(groupId: groupId),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'Streak board',
-                    style: TextStyle(
-                      color: _GroupColors.muted,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _StreakBoard(groupId: groupId),
-                  const SizedBox(height: 80),
-                ],
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  _friendlyError(error),
-                  style: const TextStyle(color: _GroupColors.muted),
-                  textAlign: TextAlign.center,
+                  ],
                 ),
               ),
+              const SizedBox(height: 14),
+              _Card(
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  onTap: () => context.push('/groups/$groupId/chat'),
+                  leading: Stack(
+                    clipBehavior: Clip.none,
+                    children: <Widget>[
+                      Icon(
+                        Icons.chat_bubble_outline,
+                        color: TribeColors.muted(context),
+                      ),
+                      if (hasUnread)
+                        Positioned(
+                          right: -1,
+                          top: -1,
+                          child: UnreadDot(
+                            size: 12,
+                            borderColor: TribeColors.card(context),
+                          ),
+                        ),
+                    ],
+                  ),
+                  title: const Text(
+                    'Group chat',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  subtitle: Text(
+                    'Share check-ins and support.',
+                    style: TextStyle(color: TribeColors.muted(context)),
+                  ),
+                  trailing: Icon(Icons.chevron_right,
+                      color: TribeColors.muted(context)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _ChatPreview(groupId: groupId),
+              const SizedBox(height: 18),
+              if (session == null)
+                _Card(
+                  child: Text(
+                    'Sign in to join and check-in.',
+                    style: TextStyle(color: TribeColors.muted(context)),
+                  ),
+                )
+              else if (!isJoined)
+                _Card(
+                  child: Row(
+                    children: <Widget>[
+                      const Expanded(
+                        child: Text(
+                          'Join this group to start daily check-ins.',
+                          style: TextStyle(
+                            height: 1.35,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        onPressed: () async {
+                          await ref
+                              .read(challengesRepositoryProvider)
+                              .startChallenge(groupId);
+                          ref.invalidate(userChallengesProvider);
+                          ref.invalidate(challengesProvider);
+                        },
+                        child: const Text('Join'),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                _CheckinPanel(groupId: groupId),
+              const SizedBox(height: 18),
+              Text(
+                'Today',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: TribeColors.muted(context),
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 10),
+              _TodayCheckins(groupId: groupId),
+              const SizedBox(height: 18),
+              Text(
+                'Streak board',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: TribeColors.muted(context),
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 10),
+              _StreakBoard(groupId: groupId),
+              const SizedBox(height: 80),
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              _friendlyError(error),
+              style: TextStyle(color: TribeColors.muted(context)),
+              textAlign: TextAlign.center,
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -290,10 +259,10 @@ class _ChatPreview extends ConsumerWidget {
     return messagesAsync.when(
       data: (messages) {
         if (messages.isEmpty) {
-          return const _Card(
+          return _Card(
             child: Text(
               'No messages yet. Start the conversation.',
-              style: TextStyle(color: _GroupColors.muted),
+              style: TextStyle(color: TribeColors.muted(context)),
             ),
           );
         }
@@ -303,10 +272,10 @@ class _ChatPreview extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const Text(
+              Text(
                 'Recent messages',
                 style: TextStyle(
-                  color: _GroupColors.muted,
+                  color: TribeColors.muted(context),
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -325,8 +294,8 @@ class _ChatPreview extends ConsumerWidget {
                           children: <Widget>[
                             Text(
                               alias,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: TribeColors.textPrimary(context),
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -335,7 +304,8 @@ class _ChatPreview extends ConsumerWidget {
                               m.content,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: _GroupColors.muted),
+                              style:
+                                  TextStyle(color: TribeColors.muted(context)),
                             ),
                           ],
                         ),
@@ -343,8 +313,8 @@ class _ChatPreview extends ConsumerWidget {
                       const SizedBox(width: 10),
                       Text(
                         Formatters.timeAgo(m.createdAt),
-                        style: const TextStyle(
-                          color: _GroupColors.muted,
+                        style: TextStyle(
+                          color: TribeColors.muted(context),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -443,10 +413,9 @@ class _CheckinPanelState extends ConsumerState<_CheckinPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const Text(
+                Text(
                   'Daily check-in',
                   style: TextStyle(
-                    color: Colors.white,
                     fontWeight: FontWeight.w900,
                     fontSize: 16,
                   ),
@@ -456,8 +425,8 @@ class _CheckinPanelState extends ConsumerState<_CheckinPanel> {
                   checkedInToday
                       ? 'You already checked in today.'
                       : 'Check in once per day to build momentum.',
-                  style: const TextStyle(
-                    color: _GroupColors.muted,
+                  style: TextStyle(
+                    color: TribeColors.muted(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -468,17 +437,18 @@ class _CheckinPanelState extends ConsumerState<_CheckinPanel> {
           FilledButton(
             onPressed: (_saving || checkedInToday) ? null : _checkIn,
             style: FilledButton.styleFrom(
-              backgroundColor: _GroupColors.accent,
-              foregroundColor: Colors.black,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
             child: _saving
-                ? const SizedBox(
+                ? SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                    ),
                   )
                 : Text(checkedInToday ? 'Done' : 'Check in'),
           ),
@@ -507,10 +477,10 @@ class _TodayCheckins extends ConsumerWidget {
         }).toList(growable: false);
 
         if (todayCheckins.isEmpty) {
-          return const _Card(
+          return _Card(
             child: Text(
               'No check-ins yet today.',
-              style: TextStyle(color: _GroupColors.muted),
+              style: TextStyle(color: TribeColors.muted(context)),
             ),
           );
         }
@@ -531,8 +501,8 @@ class _TodayCheckins extends ConsumerWidget {
                         children: <Widget>[
                           Text(
                             alias,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: TribeColors.textPrimary(context),
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -542,7 +512,8 @@ class _TodayCheckins extends ConsumerWidget {
                               c.note!,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: _GroupColors.muted),
+                              style:
+                                  TextStyle(color: TribeColors.muted(context)),
                             ),
                           ],
                         ],
@@ -550,8 +521,8 @@ class _TodayCheckins extends ConsumerWidget {
                     ),
                     Text(
                       Formatters.timeAgo(c.createdAt),
-                      style: const TextStyle(
-                        color: _GroupColors.muted,
+                      style: TextStyle(
+                        color: TribeColors.muted(context),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -568,7 +539,7 @@ class _TodayCheckins extends ConsumerWidget {
       error: (error, _) => _Card(
         child: Text(
           error.toString(),
-          style: const TextStyle(color: _GroupColors.muted),
+          style: TextStyle(color: TribeColors.muted(context)),
         ),
       ),
     );
@@ -589,10 +560,10 @@ class _StreakBoard extends ConsumerWidget {
     return checkinsAsync.when(
       data: (checkins) {
         if (checkins.isEmpty) {
-          return const _Card(
+          return _Card(
             child: Text(
               'No streaks yet.',
-              style: TextStyle(color: _GroupColors.muted),
+              style: TextStyle(color: TribeColors.muted(context)),
             ),
           );
         }
@@ -631,16 +602,16 @@ class _StreakBoard extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         alias,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: TribeColors.textPrimary(context),
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
                     Text(
                       '🔥 ${row.streak}d',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: TribeColors.textPrimary(context),
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -657,7 +628,7 @@ class _StreakBoard extends ConsumerWidget {
       error: (error, _) => _Card(
         child: Text(
           error.toString(),
-          style: const TextStyle(color: _GroupColors.muted),
+          style: TextStyle(color: TribeColors.muted(context)),
         ),
       ),
     );
@@ -671,21 +642,12 @@ class _Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _GroupColors.card,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: _GroupColors.cardBorder),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 28,
-            offset: const Offset(0, 18),
-          ),
-        ],
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: child,
       ),
-      child: child,
     );
   }
 }
@@ -716,33 +678,125 @@ class _Avatar extends StatelessWidget {
           ],
         ),
       ),
-      child: const Icon(Icons.person, color: Colors.black, size: 20),
+      child: const Icon(Icons.person, color: Colors.white, size: 20),
     );
   }
 }
 
-class _Pill extends StatelessWidget {
-  const _Pill({required this.label});
+class _GroupBadge extends StatelessWidget {
+  const _GroupBadge({
+    required this.title,
+    required this.seed,
+    this.imageUrl,
+    this.size = 46,
+  });
 
+  final String title;
+  final String seed;
+  final String? imageUrl;
+  final double size;
+
+  String _initials(String input) {
+    final parts = input
+        .trim()
+        .split(RegExp(r'\\s+'))
+        .where((p) => p.trim().isNotEmpty)
+        .toList(growable: false);
+    if (parts.isEmpty) return 'G';
+    if (parts.length == 1) return parts.first.characters.first.toUpperCase();
+    final a = parts[0].characters.first.toUpperCase();
+    final b = parts[1].characters.first.toUpperCase();
+    return '$a$b';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl?.trim() ?? '';
+    if (url.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          url,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _fallback(context),
+        ),
+      );
+    }
+    return _fallback(context);
+  }
+
+  Widget _fallback(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final hash = seed.codeUnits.fold<int>(0, (a, b) => a + b);
+    final t = (hash % 100) / 100.0;
+    final a = Color.lerp(scheme.primary, scheme.secondary, 0.18 + (0.58 * t))!;
+    final b = Color.lerp(scheme.secondary, scheme.primary, 0.12 + (0.44 * t))!;
+    final initials = _initials(title);
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[a, b],
+        ),
+      ),
+      child: Center(
+        child: Text(
+          initials,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.4,
+            fontSize: size * 0.34,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MetaPill extends StatelessWidget {
+  const _MetaPill({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: _GroupColors.chip,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _GroupColors.cardBorder),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 260),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: TribeColors.field(context),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(icon, size: 14, color: TribeColors.muted(context)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: TribeColors.textPrimary(context),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

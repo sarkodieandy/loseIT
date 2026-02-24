@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/utils/anonymous_name.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/models/community_reply.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
@@ -26,6 +27,7 @@ class CommunityThreadScreen extends ConsumerStatefulWidget {
 class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
   final _controller = TextEditingController();
   bool _sending = false;
+  bool _hasText = false;
 
   @override
   void dispose() {
@@ -64,6 +66,7 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
             anonymousName: alias,
           );
       _controller.clear();
+      _hasText = false;
     } catch (error, stackTrace) {
       AppLogger.error('community.reply', error, stackTrace);
       if (!mounted) return;
@@ -72,7 +75,10 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
       );
     } finally {
       if (mounted) {
-        setState(() => _sending = false);
+        setState(() {
+          _sending = false;
+          _hasText = _controller.text.trim().isNotEmpty;
+        });
       }
     }
   }
@@ -81,34 +87,22 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
   Widget build(BuildContext context) {
     final postAsync = ref.watch(communityPostProvider(widget.postId));
     final repliesAsync = ref.watch(communityRepliesProvider(widget.postId));
+    final onAccent = Theme.of(context).colorScheme.onPrimary;
+    final session = ref.watch(sessionProvider);
+    final currentUserId = session?.user.id;
+    final profile = ref.watch(profileControllerProvider).asData?.value;
+    final canCompose = session != null && profile != null && !_sending;
+    final canSend = canCompose && _hasText;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: TribeColors.bgTop(context),
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.white,
         title: const Text('Replies'),
       ),
-      body: Stack(
+      body: Column(
         children: <Widget>[
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: <Color>[
-                    TribeColors.bgTop(context),
-                    TribeColors.bgBottom(context),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Column(
-            children: <Widget>[
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                 child: postAsync.when(
@@ -123,7 +117,12 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                     }
                     final streak = _streakText(
                         post.category, post.streakDays, post.streakLabel);
-                    final header = streak.isEmpty ? 'Anon' : 'Anon • $streak';
+                    final rawName = post.anonymousName.trim();
+                    final name = (currentUserId != null &&
+                            post.userId == currentUserId)
+                        ? 'You'
+                        : (rawName.isEmpty ? 'Anon' : rawName);
+                    final header = streak.isEmpty ? name : '$name • $streak';
                     final badge = (post.badge?.trim().isNotEmpty ?? false)
                         ? post.badge!.trim()
                         : null;
@@ -133,7 +132,7 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                         children: <Widget>[
                           Row(
                             children: <Widget>[
-                              _ThreadAvatar(seed: post.userId),
+                              _ThreadAvatar(seed: post.userId, label: name),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
@@ -142,7 +141,7 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                                     Text(
                                       header,
                                       style: TextStyle(
-                                        color: Colors.white,
+                                        color: TribeColors.textPrimary(context),
                                         fontWeight: FontWeight.w800,
                                         fontSize: 16,
                                       ),
@@ -166,7 +165,7 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                           Text(
                             post.content,
                             style: TextStyle(
-                              color: Colors.white,
+                              color: TribeColors.textPrimary(context),
                               fontSize: 16,
                               height: 1.35,
                               fontWeight: FontWeight.w500,
@@ -201,47 +200,15 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                         ),
                       );
                     }
+                    final postUserId = postAsync.asData?.value?.userId;
                     return ListView.separated(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                       itemBuilder: (context, index) {
                         final reply = replies[index];
-                        return _ThreadCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: <Widget>[
-                                  Text(
-                                    'Anon',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  Text(
-                                    Formatters.timeAgo(reply.createdAt),
-                                    style: TextStyle(
-                                      color: TribeColors.muted(context),
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                reply.content,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
-                          ),
+                        return _ReplyTile(
+                          reply: reply,
+                          currentUserId: currentUserId,
+                          postUserId: postUserId,
                         );
                       },
                       separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -264,65 +231,107 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          textInputAction: TextInputAction.send,
-                          onSubmitted: (_) => _sendReply(),
-                          style: TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText: 'Write a reply…',
-                            hintStyle:
-                                TextStyle(color: TribeColors.muted(context)),
-                            filled: true,
-                            fillColor: TribeColors.field(context),
-                            border: OutlineInputBorder(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: TribeColors.card(context)
+                          .withValues(alpha: isDark ? 0.92 : 0.96),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: TribeColors.cardBorder(context)),
+                      boxShadow: isDark
+                          ? null
+                          : <BoxShadow>[
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 18,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            textInputAction: TextInputAction.send,
+                            textCapitalization: TextCapitalization.sentences,
+                            minLines: 1,
+                            maxLines: 4,
+                            enabled: canCompose,
+                            onChanged: (value) {
+                              final hasText = value.trim().isNotEmpty;
+                              if (hasText == _hasText) return;
+                              setState(() => _hasText = hasText);
+                            },
+                            onSubmitted: (_) {
+                              if (canSend) _sendReply();
+                            },
+                            style: TextStyle(
+                              color: TribeColors.textPrimary(context),
+                              fontWeight: FontWeight.w600,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: session == null
+                                  ? 'Sign in to reply…'
+                                  : (profile == null
+                                      ? 'Complete onboarding to reply…'
+                                      : 'Write a reply…'),
+                              hintStyle:
+                                  TextStyle(color: TribeColors.muted(context)),
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        InkWell(
+                          onTap: canSend ? _sendReply : null,
+                          borderRadius: BorderRadius.circular(18),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 140),
+                            curve: Curves.easeOut,
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              color: canSend
+                                  ? TribeColors.accent(context)
+                                  : TribeColors.field(context),
                               borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide.none,
+                              border: Border.all(
+                                color: canSend
+                                    ? onAccent.withValues(alpha: 0.18)
+                                    : TribeColors.cardBorder(context),
+                              ),
                             ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      InkWell(
-                        onTap: _sending ? null : _sendReply,
-                        borderRadius: BorderRadius.circular(18),
-                        child: Ink(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: TribeColors.accent(context),
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Center(
-                            child: _sending
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.black,
+                            child: Center(
+                              child: _sending
+                                  ? SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: canSend
+                                            ? onAccent
+                                            : TribeColors.muted(context),
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.arrow_upward_rounded,
+                                      color: canSend
+                                          ? onAccent
+                                          : TribeColors.muted(context),
                                     ),
-                                  )
-                                : const Icon(
-                                    Icons.send,
-                                    color: Colors.black,
-                                  ),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ],
-          ),
         ],
       ),
     );
@@ -336,29 +345,37 @@ class _ThreadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: TribeColors.card(context),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: TribeColors.cardBorder(context)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 28,
-            offset: const Offset(0, 18),
-          ),
-        ],
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: child,
       ),
-      child: child,
     );
   }
 }
 
 class _ThreadAvatar extends StatelessWidget {
-  const _ThreadAvatar({required this.seed});
+  const _ThreadAvatar({
+    required this.seed,
+    this.label,
+  });
 
   final String seed;
+  final String? label;
+
+  String _initialsFrom(String? raw) {
+    if (raw == null) return '';
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '';
+    final caps = RegExp(r'[A-Z]').allMatches(trimmed).map((m) => m.group(0)!);
+    final capList = caps.toList(growable: false);
+    if (capList.length >= 2) return '${capList[0]}${capList[1]}';
+    final compact = trimmed.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+    if (compact.isEmpty) return '';
+    if (compact.length == 1) return compact.toUpperCase();
+    return compact.substring(0, 2).toUpperCase();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -366,6 +383,7 @@ class _ThreadAvatar extends StatelessWidget {
     final hue = (hash % 360).toDouble();
     final colorA = HSLColor.fromAHSL(1, hue, 0.55, 0.55).toColor();
     final colorB = HSLColor.fromAHSL(1, (hue + 40) % 360, 0.55, 0.45).toColor();
+    final initials = _initialsFrom(label);
 
     return Container(
       width: 44,
@@ -381,7 +399,19 @@ class _ThreadAvatar extends StatelessWidget {
           ],
         ),
       ),
-      child: const Icon(Icons.person, color: Colors.black, size: 22),
+      child: initials.isNotEmpty
+          ? Center(
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.4,
+                  fontSize: 14,
+                ),
+              ),
+            )
+          : const Icon(Icons.person, color: Colors.white, size: 22),
     );
   }
 }
@@ -396,16 +426,137 @@ class _ThreadBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
+        color: TribeColors.chip(context),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: TribeColors.cardBorder(context)),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: Colors.white,
+          color: TribeColors.textPrimary(context),
           fontWeight: FontWeight.w800,
           fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+
+class _ReplyTile extends StatelessWidget {
+  const _ReplyTile({
+    required this.reply,
+    required this.currentUserId,
+    required this.postUserId,
+  });
+
+  final CommunityReply reply;
+  final String? currentUserId;
+  final String? postUserId;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final mine = currentUserId != null && reply.userId == currentUserId;
+    final isOp = postUserId != null && reply.userId == postUserId;
+    final time = Formatters.timeAgo(reply.createdAt);
+    final rawName = reply.anonymousName.trim();
+    final name = mine ? 'You' : (rawName.isEmpty ? 'Anon' : rawName);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _ThreadAvatar(seed: reply.userId, label: name),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            decoration: BoxDecoration(
+              color: TribeColors.card(context),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: TribeColors.cardBorder(context)),
+              boxShadow: isDark
+                  ? null
+                  : <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 14,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: <Widget>[
+                          Text(
+                            name,
+                            style: TextStyle(
+                              color: TribeColors.textPrimary(context),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                            ),
+                          ),
+                          if (isOp) const _RolePill(label: 'OP'),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      time,
+                      style: TextStyle(
+                        color: TribeColors.muted(context),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  reply.content,
+                  style: TextStyle(
+                    color: TribeColors.textPrimary(context),
+                    fontSize: 15,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RolePill extends StatelessWidget {
+  const _RolePill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: TribeColors.chip(context),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: TribeColors.cardBorder(context)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: TribeColors.muted(context),
+          fontWeight: FontWeight.w900,
+          fontSize: 11,
+          letterSpacing: 0.2,
         ),
       ),
     );

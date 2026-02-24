@@ -72,7 +72,7 @@ class MilestonesScreen extends ConsumerWidget {
           error: (error, _) => Center(child: Text('Failed: $error')),
         ),
       ),
-      floatingActionButton: isPremium.isPremium
+      floatingActionButton: isPremium.hasAccess
           ? FloatingActionButton(
               heroTag: 'milestones_add',
               onPressed: () => _showAddDialog(context, ref),
