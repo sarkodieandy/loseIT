@@ -181,7 +181,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                       ),
                       Text(
                         isJoined ? 'Member' : 'Join to chat',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: _ChatColors.muted(context),
                           fontWeight: FontWeight.w700,
                         ),
@@ -222,7 +222,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                       padding: const EdgeInsets.all(24),
                       child: Text(
                         _friendlyError(error),
-                        style: TextStyle(color: _ChatColors.muted(context)(context)),
+                        style: TextStyle(color: _ChatColors.muted(context)),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -230,10 +230,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                 ),
               ),
               if (session == null)
-                const SafeArea(
+                SafeArea(
                   top: false,
                   child: Padding(
-                    padding: EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
                     child: Text(
                       'Sign in to send messages.',
                       style: TextStyle(color: _ChatColors.muted(context)),
@@ -368,7 +368,7 @@ class _InfoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: _ChatColors.card(context),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _ChatColors.card(context)Border),
+        border: Border.all(color: _ChatColors.cardBorder(context)),
       ),
       child: child,
     );
@@ -388,7 +388,8 @@ class _Bubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final alias = anonymousNameFor(message.senderId);
     final time = Formatters.timeAgo(message.createdAt);
-    final bubbleColor = mine ? _ChatColors.mineBubble : _ChatColors.otherBubble;
+    final bubbleColor =
+        mine ? _ChatColors.mineBubble(context) : _ChatColors.otherBubble(context);
     final textColor = mine ? Colors.black : Colors.white;
 
     return Align(
@@ -409,7 +410,7 @@ class _Bubble extends StatelessWidget {
               border: Border.all(
                 color: mine
                     ? Colors.black.withValues(alpha: 0.10)
-                    : _ChatColors.card(context)Border,
+                    : _ChatColors.cardBorder(context),
               ),
             ),
             child: Padding(
@@ -421,7 +422,7 @@ class _Bubble extends StatelessWidget {
                   if (!mine)
                     Text(
                       alias,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _ChatColors.muted(context),
                         fontWeight: FontWeight.w800,
                         fontSize: 12,
