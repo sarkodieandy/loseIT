@@ -34,6 +34,16 @@ class RevenueCatService {
       return;
     }
 
+    // Basic validation: server keys start with `sk_` and should not be
+    // used in the client SDK. Warn and skip initialization if that's the case.
+    if (trimmedKey.startsWith('sk_') || trimmedKey.startsWith('sk-')) {
+      AppLogger.error(
+        'revenuecat.initialize',
+        'Provided API key looks like a server key (sk_). Skipping initialization to avoid misuse.',
+      );
+      return;
+    }
+
     _entitlementId = _normalizeEntitlementId(entitlementId);
 
     try {
@@ -42,6 +52,12 @@ class RevenueCatService {
       } else {
         await Purchases.setLogLevel(LogLevel.info);
       }
+
+      // Mask key for logs (avoid printing full secret)
+      final masked = trimmedKey.length > 8
+          ? '${trimmedKey.substring(0, 4)}...${trimmedKey.substring(trimmedKey.length - 4)}'
+          : '***';
+      AppLogger.info('RevenueCat: configuring with key=$masked');
 
       await Purchases.configure(PurchasesConfiguration(trimmedKey));
 
@@ -111,11 +127,11 @@ class RevenueCatService {
     return trialEndsAt.difference(now).inDays + 1;
   }
 
-  /// Start 7-day trial
+  /// Start 3-day trial
   Future<bool> startTrial() async {
     if (!_configured) return false;
     try {
-      AppLogger.info('revenuecat: starting 7-day trial');
+      AppLogger.info('revenuecat: starting 3-day trial');
       // Trial is tracked in Supabase profiles table
       return true;
     } catch (error, stackTrace) {
@@ -144,14 +160,39 @@ class RevenueCatService {
 
     try {
       final trimmed = appUserId?.trim();
+
+      // avoid unnecessary logout calls; the decodeEnvelope error was seen when
+      // calling logOut repeatedly or when the SDK was not in a valid state.
+      // use the provided future getter; avoids undefined method error
+      final currentId = await Purchases.appUserID;
+
+      bool _isAnonymous(String id) => id.startsWith(r'$RCAnonymousID');
+
       if (trimmed == null || trimmed.isEmpty) {
-        AppLogger.info('RevenueCat: logOut');
-        final info = await Purchases.logOut();
-        _lastCustomerInfo = info;
-        if (!_customerInfoController.isClosed) {
-          _customerInfoController.add(info);
+        if (currentId.isEmpty || _isAnonymous(currentId)) {
+          AppLogger.info(
+              'RevenueCat: already logged out or anonymous ($currentId), skipping');
+          return;
         }
-        AppLogger.info('RevenueCat: logOut completed successfully');
+
+        AppLogger.info('RevenueCat: logOut');
+        try {
+          final info = await Purchases.logOut();
+          _lastCustomerInfo = info;
+          if (!_customerInfoController.isClosed) {
+            _customerInfoController.add(info);
+          }
+          AppLogger.info('RevenueCat: logOut completed successfully');
+        } on PlatformException catch (pe) {
+          AppLogger.error('revenuecat.syncUser', pe);
+          // ignore; logout not critical
+        }
+        return;
+      }
+
+      // if already logged in as desired user, nothing to do
+      if (trimmed == currentId) {
+        AppLogger.info('RevenueCat: syncUser no-op (already logged in)');
         return;
       }
 
@@ -172,11 +213,38 @@ class RevenueCatService {
   Future<Offerings?> fetchOfferings() async {
     if (!_configured) return null;
     try {
-      final offerings = await Purchases.getOfferings();
+      // Try a normal fetch first (may return a cached value). If packages
+      // are empty, attempt a forced refresh to pick up new offerings.
+      var offerings = await Purchases.getOfferings();
+      var packages = offerings.current?.availablePackages ?? <Package>[];
+      var packageCount = packages.length;
+
+      if (packageCount == 0) {
+        AppLogger.warn(
+            'revenuecat: no packages found in cached offerings, forcing refresh');
+        try {
+          // The purchases_flutter version in use doesn't support a named
+          // `forceRefresh` parameter. Request offerings again which may
+          // refresh cached values.
+          offerings = await Purchases.getOfferings();
+          packages = offerings.current?.availablePackages ?? <Package>[];
+          packageCount = packages.length;
+        } catch (e, st) {
+          AppLogger.error('revenuecat.offerings.refresh', e, st);
+        }
+      }
+
       final offeringId = offerings.current?.identifier ?? 'none';
-      final packageCount = offerings.current?.availablePackages.length ?? 0;
       AppLogger.info(
           'revenuecat: offering=$offeringId, packages=$packageCount');
+
+      // Log details for easier debugging when packages are present
+      for (final p in packages) {
+        final prod = p.storeProduct;
+        AppLogger.info(
+            'revenuecat.package: id=${p.identifier}, type=${p.packageType}, productId=${prod.identifier}, price=${prod.priceString}');
+      }
+
       return offerings;
     } catch (error, stackTrace) {
       AppLogger.error('revenuecat.offerings', error, stackTrace);

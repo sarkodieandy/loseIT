@@ -75,4 +75,52 @@ class LocalCacheService {
   Future<void> cacheJournalEntries(List<JournalEntry> entries) async {
     await _journalBox.put('entries', entries.map((e) => e.toJson()).toList());
   }
+
+  String _groupChatLastSeenKey({
+    required String userId,
+    required String groupId,
+  }) {
+    return 'groupChatLastSeen:$userId:$groupId';
+  }
+
+  Future<DateTime?> getGroupChatLastSeen({
+    required String userId,
+    required String groupId,
+  }) async {
+    final raw = _settingsBox.get(_groupChatLastSeenKey(
+      userId: userId,
+      groupId: groupId,
+    ));
+
+    if (raw is int) {
+      return DateTime.fromMillisecondsSinceEpoch(raw, isUtc: true);
+    }
+
+    if (raw is String && raw.trim().isNotEmpty) {
+      final parsed = DateTime.tryParse(raw);
+      if (parsed != null) return parsed.isUtc ? parsed : parsed.toUtc();
+    }
+
+    return null;
+  }
+
+  Future<void> setGroupChatLastSeen({
+    required String userId,
+    required String groupId,
+    required DateTime seenAt,
+  }) async {
+    await _settingsBox.put(
+      _groupChatLastSeenKey(userId: userId, groupId: groupId),
+      seenAt.toUtc().millisecondsSinceEpoch,
+    );
+  }
+
+  Future<void> clearGroupChatLastSeen({
+    required String userId,
+    required String groupId,
+  }) async {
+    await _settingsBox.delete(
+      _groupChatLastSeenKey(userId: userId, groupId: groupId),
+    );
+  }
 }

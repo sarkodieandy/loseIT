@@ -25,11 +25,48 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool showSnack = false}) async {
     setState(() => _loading = true);
-    _offerings = await RevenueCatService.instance.fetchOfferings();
+    try {
+      _offerings = await RevenueCatService.instance.fetchOfferings();
+    } catch (error, stackTrace) {
+      AppLogger.error('paywall.load', error, stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Failed to load offerings: ${error.toString()}')),
+        );
+      }
+      _offerings = null;
+    }
     if (mounted) {
       setState(() => _loading = false);
+    }
+    if (_offerings == null) {
+      AppLogger.warn('paywall.load: Offerings returned null (no offerings)');
+    } else {
+      final offeringId = _offerings?.current?.identifier ?? 'none';
+      final packages = _offerings?.current?.availablePackages ?? <Package>[];
+      AppLogger.info(
+          'paywall.load: offering=$offeringId, packages=${packages.length}');
+      for (final p in packages) {
+        final prod = p.storeProduct;
+        AppLogger.info(
+            'paywall.package: id=${p.identifier}, product=${prod.identifier}, price=${prod.priceString}');
+      }
+      if (packages.isEmpty) {
+        AppLogger.warn(
+            'paywall.load: No packages attached to offering $offeringId');
+      }
+    }
+
+    if (showSnack && mounted) {
+      final offeringId = _offerings?.current?.identifier ?? 'none';
+      final packageCount = _offerings?.current?.availablePackages.length ?? 0;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Offering: $offeringId • packages=$packageCount')),
+      );
     }
   }
 
@@ -94,6 +131,11 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       appBar: AppBar(
         title: const Text('Go Premium'),
         actions: <Widget>[
+          IconButton(
+            tooltip: 'Refresh offerings',
+            onPressed: _purchasing ? null : () => _load(showSnack: true),
+            icon: const Icon(Icons.refresh),
+          ),
           TextButton(
             onPressed: _purchasing ? null : _restore,
             child: const Text('Restore'),
@@ -140,33 +182,39 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                             ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Personalized insights + accountability tools that keep you consistent.',
-                      ),
-                      const SizedBox(height: 14),
                       const _BenefitRow(
                         icon: Icons.auto_graph,
-                        text: 'Weekly insights + trigger patterns',
+                        text: 'Weekly insights & personalized trends',
                       ),
                       const SizedBox(height: 8),
                       const _BenefitRow(
                         icon: Icons.playlist_add_check,
-                        text: 'Multi-habit tracking + advanced stats',
+                        text: 'Track unlimited habits with detailed stats',
                       ),
                       const SizedBox(height: 8),
                       const _BenefitRow(
                         icon: Icons.mic,
-                        text: 'Voice journaling + transcription',
+                        text: 'Voice journaling with AI transcription',
                       ),
                       const SizedBox(height: 8),
                       const _BenefitRow(
                         icon: Icons.group,
-                        text: 'Support network + custom milestones',
+                        text: 'Community support & custom milestones',
+                      ),
+                      const SizedBox(height: 8),
+                      const _BenefitRow(
+                        icon: Icons.not_interested,
+                        text: 'Ad‑free experience',
+                      ),
+                      const SizedBox(height: 8),
+                      const _BenefitRow(
+                        icon: Icons.support_agent,
+                        text: 'Priority customer support',
                       ),
                       const SizedBox(height: 10),
-                      if (isPremium)
+                      if (isPremium.hasAccess)
                         Text(
-                          'You’re premium.',
+                          'You\'re premium.',
                           style:
                               Theme.of(context).textTheme.labelLarge?.copyWith(
                                     fontWeight: FontWeight.w800,
@@ -175,26 +223,81 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                     ],
                   ),
                 ),
+
                 const SizedBox(height: 18),
+
+                // Production: clean header information
+                if (_offerings != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: Text(
+                      'Unlock all premium features with one of our plans.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 8),
+
+                // trial offer button for new users
+                Consumer(builder: (context, ref, _) {
+                  final isPremium = ref.watch(isPremiumProvider);
+                  final trialOnly = ref.watch(isTrialOnlyProvider);
+                  final daysLeft = ref.watch(trialDaysProvider);
+                  if (!isPremium && !trialOnly) {
+                    return ElevatedButton(
+                      onPressed: _purchasing
+                          ? null
+                          : () async {
+                              final ok = await ref
+                                  .read(premiumControllerProvider.notifier)
+                                  .startTrial();
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text(ok
+                                          ? '3‑day free trial started!'
+                                          : 'Trial could not be started.')),
+                                );
+                              }
+                              if (ok) {
+                                _load();
+                              }
+                            },
+                      child: const Text('Start 3‑Day Free Trial'),
+                    );
+                  }
+                  if (trialOnly) {
+                    return Text(
+                      'Trial active ($daysLeft days left)',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    );
+                  }
+                  return const SizedBox.shrink();
+                }),
+
+                const SizedBox(height: 8),
+
                 if (!configured)
                   const _WarningCard(
                     title: 'RevenueCat not configured',
                     message:
                         'Add REVENUECAT_IOS_API_KEY to .env, then run again.',
                   )
-                else if (packages.isEmpty)
+                else if (packages.isEmpty) ...[
                   const _WarningCard(
                     title: 'No products found',
                     message:
                         'Configure an Offering in RevenueCat and attach packages.',
-                  )
-                else ...[
+                  ),
+                ] else ...[
                   ...packages.map((p) => _PackageTile(
                         package: p,
                         purchasing: _purchasing,
                         onTap: () => _purchase(p),
                       )),
                 ],
+
                 const SizedBox(height: 18),
                 Text(
                   'Cancel anytime in App Store settings.',
@@ -315,10 +418,8 @@ class _PackageTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             border: Border.all(
-              color: Theme.of(context)
-                  .colorScheme
-                  .primary
-                  .withValues(alpha: 0.12),
+              color:
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
             ),
           ),
           child: Row(
@@ -359,4 +460,3 @@ class _PackageTile extends StatelessWidget {
     );
   }
 }
-

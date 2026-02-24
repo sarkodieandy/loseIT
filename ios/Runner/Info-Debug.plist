@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -22,32 +24,34 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Use Face ID to securely unlock your Be Sober account.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Allow Be Sober to take photos for your journal entries.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Allow Be Sober to access your photo library for journal entries.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Allow Be Sober to save photos from your journal.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Allow Be Sober to record voice journal entries.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Allow Be Sober to transcribe your voice journals.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Allow Be Sober to access your local network for development debugging.</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_dartVmService._tcp</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Allow Be Sober to take photos for your journal entries.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use Face ID to securely unlock your Be Sober account.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Allow Be Sober to read health data for analytics insights.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Allow Be Sober to write health data if enabled.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Allow Be Sober to access your local network for development debugging.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Allow Be Sober to record voice journal entries.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Allow Be Sober to save photos from your journal.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Allow Be Sober to access your photo library for journal entries.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Allow Be Sober to transcribe your voice journals.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -65,10 +69,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
 </dict>
 </plist>
-

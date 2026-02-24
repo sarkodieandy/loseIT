@@ -24,12 +24,32 @@ Future<void> main() async {
     };
 
     ErrorWidget.builder = (details) {
+      // always log the underlying issue
       AppLogger.error(
         'ErrorWidget.builder',
         details.exception,
         details.stack,
       );
-      return const SizedBox.shrink();
+      // show a visible error message even in release builds. Wrap the
+      // content in its own Directionality/Material so it can render anywhere
+      // in the tree (e.g. before the app's normal widgets are available).
+      return Directionality(
+        textDirection: TextDirection.ltr,
+        child: Material(
+          color: Colors.transparent,
+          child: Center(
+            child: Container(
+              color: Colors.red.shade700.withValues(alpha: 0.8),
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                details.exception.toString(),
+                style: const TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+      );
     };
 
     runApp(

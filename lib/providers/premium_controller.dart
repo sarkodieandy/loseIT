@@ -47,7 +47,28 @@ class PremiumController extends StateNotifier<PremiumStatus> {
         return;
       }
 
+      // first populate current state from server
       await _updateStatus();
+
+      // automatically start a trial for completely new accounts
+      // (this covers cases where onboarding did not explicitly call
+      //  startTrial, e.g. silent anonymous sessions or email sign‑ins)
+      if (!state.hasAccess) {
+        // query the profile row; if it doesn't exist yet we wait for
+        // onboarding to create it and then start the trial there.
+        final profiles = await Supabase.instance.client
+            .from('profiles')
+            .select('trial_used')
+            .eq('id', user.id)
+            .limit(1);
+
+        if (profiles.isNotEmpty) {
+          final used = (profiles[0]['trial_used'] as bool? ?? false);
+          if (!used) {
+            await startTrial();
+          }
+        }
+      }
 
       if (_service.isConfigured) {
         _sub = _service.customerInfoStream.listen((_) {
@@ -87,12 +108,10 @@ class PremiumController extends StateNotifier<PremiumStatus> {
           .limit(1);
 
       DateTime? trialEndsAt;
-      bool? trialUsed;
       if (profiles.isNotEmpty) {
         trialEndsAt = profiles[0]['trial_ends_at'] != null
             ? DateTime.parse(profiles[0]['trial_ends_at'] as String)
             : null;
-        trialUsed = profiles[0]['trial_used'] as bool? ?? false;
       }
 
       final isTrialActive = !isPremium && _service.isTrialActive(trialEndsAt);
@@ -112,7 +131,7 @@ class PremiumController extends StateNotifier<PremiumStatus> {
     }
   }
 
-  /// Start 7-day trial
+  /// Start 3-day trial
   Future<bool> startTrial() async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
@@ -131,8 +150,8 @@ class PremiumController extends StateNotifier<PremiumStatus> {
         return false;
       }
 
-      // Set trial to end in 7 days
-      final trialEndsAt = DateTime.now().add(const Duration(days: 7));
+      // Set trial to end in 3 days
+      final trialEndsAt = DateTime.now().add(const Duration(days: 3));
 
       await Supabase.instance.client.from('profiles').update({
         'trial_ends_at': trialEndsAt.toIso8601String(),
@@ -140,7 +159,7 @@ class PremiumController extends StateNotifier<PremiumStatus> {
       }).eq('id', user.id);
 
       await _updateStatus();
-      AppLogger.info('premium: 7-day trial started');
+      AppLogger.info('premium: 3-day trial started');
       return true;
     } catch (error, stackTrace) {
       AppLogger.error('premium.startTrial', error, stackTrace);

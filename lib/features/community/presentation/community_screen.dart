@@ -8,12 +8,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/utils/app_motion.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/animated_reveal.dart';
+import '../../../core/widgets/unread_dot.dart';
 import '../../../data/models/challenge.dart';
 import '../../../data/models/community_post.dart';
 import '../../../data/models/dm_thread.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
+import '../../../providers/group_chat_unread_providers.dart';
 import '../../../providers/repository_providers.dart';
+import 'tribe_colors.dart';
 
 enum _TribeTopTab { feed, groups, messages }
 
@@ -28,18 +31,6 @@ enum _TribeFilter {
 
   final String label;
   final String? category;
-}
-
-class _TribeColors {
-  static const Color bgTop = Color(0xFF050607);
-  static const Color bgBottom = Color(0xFF0B0E11);
-  static const Color card = Color(0xFF0E1216);
-  static const Color cardBorder = Color(0x1AFFFFFF);
-  static const Color muted = Color(0xFF9AA3AB);
-  static const Color accent = Color(0xFF26B7FF);
-  static const Color chip = Color(0xFF0D1115);
-  static const Color green = Color(0xFF19C37D);
-  static const Color red = Color(0xFFE05555);
 }
 
 class CommunityScreen extends ConsumerStatefulWidget {
@@ -60,9 +51,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     final isPremium = ref.watch(premiumControllerProvider);
     final onlineCountAsync = ref.watch(communityOnlineCountProvider);
     final onlineCount = onlineCountAsync.asData?.value;
+    final groupsHasUnread = ref.watch(anyGroupChatHasUnreadProvider);
 
     return Scaffold(
-      backgroundColor: _TribeColors.bgTop,
+      backgroundColor: TribeColors.bgTop(context),
       floatingActionButton: AnimatedScale(
         scale: _showFab ? 1 : 0.0,
         duration: AppMotion.fast,
@@ -90,7 +82,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
               _TribeTopTab.feed => FloatingActionButton(
                   key: const ValueKey('fab_feed'),
                   heroTag: 'tribe_post_fab',
-                  backgroundColor: _TribeColors.accent,
+                  backgroundColor: TribeColors.accent(context),
                   foregroundColor: Colors.black,
                   onPressed: () => context.push('/community/new'),
                   child: const Icon(Icons.add),
@@ -98,10 +90,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
               _TribeTopTab.groups => FloatingActionButton(
                   key: const ValueKey('fab_groups'),
                   heroTag: 'tribe_group_fab',
-                  backgroundColor: _TribeColors.accent,
+                  backgroundColor: TribeColors.accent(context),
                   foregroundColor: Colors.black,
                   onPressed: () {
-                    if (!isPremium) {
+                    if (!isPremium.isPremium) {
                       context.push('/paywall');
                       return;
                     }
@@ -124,8 +116,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: <Color>[
-                    _TribeColors.bgTop,
-                    _TribeColors.bgBottom,
+                    TribeColors.bgTop(context),
+                    TribeColors.bgBottom(context),
                   ],
                 ),
               ),
@@ -166,6 +158,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                         delay: AppMotion.stagger(1),
                         child: _TribeTopTabs(
                           selected: _tab,
+                          groupsHasUnread: groupsHasUnread,
                           onChanged: (value) {
                             HapticFeedback.selectionClick();
                             setState(() {
@@ -243,21 +236,25 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              Text(
-                headerTitle,
-                style: const TextStyle(
-                  color: _TribeColors.muted,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  headerTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: TribeColors.muted(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
+              if (headerRight != null) const SizedBox(width: 12),
               if (headerRight != null)
                 TextButton(
                   onPressed: () {},
                   style: TextButton.styleFrom(
-                    foregroundColor: _TribeColors.accent,
+                    foregroundColor: TribeColors.accent(context),
                   ),
                   child: Text(headerRight),
                 ),
@@ -284,12 +281,12 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
       feedAsync.when(
         data: (posts) {
           if (posts.isEmpty) {
-            return const SliverToBoxAdapter(
+            return SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(20, 24, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
                 child: Text(
                   'No posts yet. Be the first.',
-                  style: TextStyle(color: _TribeColors.muted),
+                  style: TextStyle(color: TribeColors.muted(context)),
                 ),
               ),
             );
@@ -348,7 +345,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
             padding: const EdgeInsets.all(24),
             child: Text(
               _friendlyBackendError(error),
-              style: const TextStyle(color: _TribeColors.muted),
+              style: TextStyle(color: TribeColors.muted(context)),
             ),
           ),
         ),
@@ -477,12 +474,12 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
       challengesAsync.when(
         data: (challenges) {
           if (challenges.isEmpty) {
-            return const SliverToBoxAdapter(
+            return SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.all(20),
+                padding: const EdgeInsets.all(20),
                 child: Text(
                   'No groups yet.',
-                  style: TextStyle(color: _TribeColors.muted),
+                  style: TextStyle(color: TribeColors.muted(context)),
                 ),
               ),
             );
@@ -497,6 +494,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                 final challenge = challenges[index];
                 final isJoined =
                     joined.any((item) => item.challengeId == challenge.id);
+                final hasUnread = isJoined
+                    ? ref.watch(groupChatHasUnreadProvider(challenge.id))
+                    : false;
                 return AnimatedReveal(
                   key: ValueKey('group_row_${challenge.id}'),
                   delay: AppMotion.stagger(index, stepMs: 32, maxSteps: 8),
@@ -504,6 +504,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                   child: _TribeGroupRow(
                     challenge: challenge,
                     joined: isJoined,
+                    hasUnread: hasUnread,
                     onTap: () => context.push('/groups/${challenge.id}'),
                     onJoin: () async {
                       if (isJoined) {
@@ -533,7 +534,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           child: Center(
             child: Text(
               _friendlyBackendError(error),
-              style: const TextStyle(color: _TribeColors.muted),
+              style: TextStyle(color: TribeColors.muted(context)),
             ),
           ),
         ),
@@ -544,13 +545,13 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   List<Widget> _buildMessagesSlivers(Session? session) {
     final threadsAsync = ref.watch(dmThreadsProvider);
     if (session == null) {
-      return const <Widget>[
+      return <Widget>[
         SliverFillRemaining(
           hasScrollBody: false,
           child: Center(
             child: Text(
               'Sign in to use messages.',
-              style: TextStyle(color: _TribeColors.muted),
+              style: TextStyle(color: TribeColors.muted(context)),
             ),
           ),
         ),
@@ -575,12 +576,12 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
       threadsAsync.when(
         data: (threads) {
           if (threads.isEmpty) {
-            return const SliverToBoxAdapter(
+            return SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.all(20),
+                padding: const EdgeInsets.all(20),
                 child: Text(
                   'No messages yet.',
-                  style: TextStyle(color: _TribeColors.muted),
+                  style: TextStyle(color: TribeColors.muted(context)),
                 ),
               ),
             );
@@ -618,7 +619,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           child: Center(
             child: Text(
               _friendlyBackendError(error),
-              style: const TextStyle(color: _TribeColors.muted),
+              style: TextStyle(color: TribeColors.muted(context)),
             ),
           ),
         ),
@@ -655,7 +656,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   void _showSearch(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: _TribeColors.card,
+      backgroundColor: TribeColors.card(context),
       showDragHandle: true,
       builder: (context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -663,10 +664,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text(
+            Text(
               'Search',
               style: TextStyle(
-                color: Colors.white,
+                color: TribeColors.textPrimary(context),
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
@@ -676,9 +677,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
               autofocus: true,
               decoration: InputDecoration(
                 hintText: 'Search posts…',
-                hintStyle: const TextStyle(color: _TribeColors.muted),
+                hintStyle: TextStyle(color: TribeColors.muted(context)),
                 filled: true,
-                fillColor: _TribeColors.chip,
+                fillColor: TribeColors.chip(context),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
@@ -695,7 +696,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   void _showFilters(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: _TribeColors.card,
+      backgroundColor: TribeColors.card(context),
       showDragHandle: true,
       builder: (context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -703,18 +704,18 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text(
+            Text(
               'Filters',
               style: TextStyle(
-                color: Colors.white,
+                color: TribeColors.textPrimary(context),
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Use the chips on the main screen to filter by category.',
-              style: TextStyle(color: _TribeColors.muted),
+              style: TextStyle(color: TribeColors.muted(context)),
             ),
           ],
         ),
@@ -747,10 +748,10 @@ class _TribeHeader extends StatelessWidget {
                 spacing: 12,
                 runSpacing: 8,
                 children: <Widget>[
-                  const Text(
+                  Text(
                     'Community',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: TribeColors.textPrimary(context),
                       fontSize: 34,
                       fontWeight: FontWeight.w800,
                       height: 1.1,
@@ -778,11 +779,11 @@ class _TribeHeader extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Expanded(
+            Expanded(
               child: Text(
                 'Real people, same battle. No names, no profiles.',
                 style: TextStyle(
-                  color: _TribeColors.muted,
+                  color: TribeColors.muted(context),
                   fontSize: 16,
                   height: 1.35,
                 ),
@@ -810,13 +811,13 @@ class _OnlineNow extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        const _PulseDot(color: _TribeColors.green),
+        _PulseDot(color: TribeColors.green(context)),
         const SizedBox(width: 8),
         Text(
           '$count online\nnow',
           textAlign: TextAlign.left,
-          style: const TextStyle(
-            color: _TribeColors.muted,
+          style: TextStyle(
+            color: TribeColors.muted(context),
             fontSize: 13,
             height: 1.15,
             fontWeight: FontWeight.w600,
@@ -904,10 +905,10 @@ class _IconCircleButton extends StatelessWidget {
         height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: 0.06),
-          border: Border.all(color: _TribeColors.cardBorder),
+          color: Colors.black.withValues(alpha: 0.06),
+          border: Border.all(color: TribeColors.cardBorder(context)),
         ),
-        child: Icon(icon, color: Colors.white, size: 20),
+        child: Icon(icon, color: TribeColors.muted(context), size: 20),
       ),
     );
   }
@@ -927,19 +928,19 @@ class _Pill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
+        color: Colors.black.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _TribeColors.cardBorder),
+        border: Border.all(color: TribeColors.cardBorder(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: 16, color: _TribeColors.muted),
+          Icon(icon, size: 16, color: TribeColors.muted(context)),
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(
-              color: _TribeColors.muted,
+            style: TextStyle(
+              color: TribeColors.muted(context),
               fontWeight: FontWeight.w700,
               fontSize: 13,
             ),
@@ -953,10 +954,12 @@ class _Pill extends StatelessWidget {
 class _TribeTopTabs extends StatelessWidget {
   const _TribeTopTabs({
     required this.selected,
+    required this.groupsHasUnread,
     required this.onChanged,
   });
 
   final _TribeTopTab selected;
+  final bool groupsHasUnread;
   final ValueChanged<_TribeTopTab> onChanged;
 
   @override
@@ -964,24 +967,27 @@ class _TribeTopTabs extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: Colors.black.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _TribeColors.cardBorder),
+        border: Border.all(color: TribeColors.cardBorder(context)),
       ),
       child: Row(
         children: <Widget>[
           _TabItem(
             label: 'Feed',
+            showIndicator: false,
             selected: selected == _TribeTopTab.feed,
             onTap: () => onChanged(_TribeTopTab.feed),
           ),
           _TabItem(
             label: 'Groups',
+            showIndicator: groupsHasUnread,
             selected: selected == _TribeTopTab.groups,
             onTap: () => onChanged(_TribeTopTab.groups),
           ),
           _TabItem(
             label: 'Messages',
+            showIndicator: false,
             selected: selected == _TribeTopTab.messages,
             onTap: () => onChanged(_TribeTopTab.messages),
           ),
@@ -994,11 +1000,13 @@ class _TribeTopTabs extends StatelessWidget {
 class _TabItem extends StatelessWidget {
   const _TabItem({
     required this.label,
+    required this.showIndicator,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
+  final bool showIndicator;
   final bool selected;
   final VoidCallback onTap;
 
@@ -1014,7 +1022,7 @@ class _TabItem extends StatelessWidget {
           curve: AppMotion.emphasized,
           decoration: BoxDecoration(
             color: selected
-                ? Colors.white.withValues(alpha: 0.08)
+                ? TribeColors.accent(context).withValues(alpha: 0.12)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(999),
           ),
@@ -1024,13 +1032,31 @@ class _TabItem extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 10),
               child: Center(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: selected ? Colors.white : _TribeColors.muted,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: selected
+                            ? TribeColors.textPrimary(context)
+                            : TribeColors.muted(context),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (showIndicator) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: TribeColors.red(context),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -1055,10 +1081,10 @@ class _TribeFilters extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const Text(
+        Text(
           'Filters',
           style: TextStyle(
-            color: _TribeColors.muted,
+            color: TribeColors.muted(context),
             fontWeight: FontWeight.w700,
             fontSize: 14,
           ),
@@ -1106,16 +1132,20 @@ class _ChoicePill extends StatelessWidget {
           curve: AppMotion.emphasized,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? _TribeColors.accent : _TribeColors.chip,
+            color: selected
+                ? TribeColors.accent(context)
+                : TribeColors.chip(context),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-              color: selected ? Colors.transparent : _TribeColors.cardBorder,
+              color: selected
+                  ? Colors.transparent
+                  : TribeColors.cardBorder(context),
             ),
           ),
           child: Text(
             label,
             style: TextStyle(
-              color: selected ? Colors.black : _TribeColors.muted,
+              color: selected ? Colors.black : TribeColors.muted(context),
               fontWeight: FontWeight.w800,
               fontSize: 14,
             ),
@@ -1140,19 +1170,24 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: <Widget>[
-        Text(
-          title,
-          style: const TextStyle(
-            color: _TribeColors.muted,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: TribeColors.muted(context),
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
+        const SizedBox(width: 12),
         TextButton(
           onPressed: onTap,
-          style: TextButton.styleFrom(foregroundColor: _TribeColors.accent),
+          style: TextButton.styleFrom(
+              foregroundColor: TribeColors.accent(context)),
           child: Text(action),
         ),
       ],
@@ -1190,14 +1225,14 @@ class _TribePostCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _TribeColors.card,
+        color: TribeColors.card(context),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: _TribeColors.cardBorder),
+        border: Border.all(color: TribeColors.cardBorder(context)),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 28,
-            offset: const Offset(0, 18),
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1215,8 +1250,8 @@ class _TribePostCard extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       header,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: TribeColors.textPrimary(context),
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                       ),
@@ -1224,8 +1259,8 @@ class _TribePostCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '$topic · $timeAgo',
-                      style: const TextStyle(
-                        color: _TribeColors.muted,
+                      style: TextStyle(
+                        color: TribeColors.muted(context),
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1239,8 +1274,8 @@ class _TribePostCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             post.content,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: TribeColors.textPrimary(context),
               fontSize: 16,
               height: 1.35,
               fontWeight: FontWeight.w500,
@@ -1264,7 +1299,7 @@ class _TribePostCard extends StatelessWidget {
               TextButton(
                 onPressed: isSelf ? null : onSendSupport,
                 style: TextButton.styleFrom(
-                  foregroundColor: _TribeColors.accent,
+                  foregroundColor: TribeColors.accent(context),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 ),
@@ -1272,7 +1307,7 @@ class _TribePostCard extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       cta,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 14,
                       ),
@@ -1364,14 +1399,14 @@ class _BadgePill extends StatelessWidget {
   Widget build(BuildContext context) {
     final category = (post.category ?? '').toLowerCase();
     final bg = switch (category) {
-      'win' => _TribeColors.green.withValues(alpha: 0.25),
-      'relapse' => _TribeColors.red.withValues(alpha: 0.25),
-      _ => _TribeColors.green.withValues(alpha: 0.18),
+      'win' => TribeColors.green(context).withValues(alpha: 0.25),
+      'relapse' => TribeColors.red(context).withValues(alpha: 0.25),
+      _ => TribeColors.green(context).withValues(alpha: 0.18),
     };
 
     final fg = switch (category) {
-      'win' => _TribeColors.green,
-      'relapse' => _TribeColors.red,
+      'win' => TribeColors.green(context),
+      'relapse' => TribeColors.red(context),
       _ => const Color(0xFF90E2C3),
     };
 
@@ -1414,12 +1449,12 @@ class _MetaIcon extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         child: Row(
           children: <Widget>[
-            Icon(icon, color: _TribeColors.muted, size: 18),
+            Icon(icon, color: TribeColors.muted(context), size: 18),
             const SizedBox(width: 6),
             Text(
               label,
-              style: const TextStyle(
-                color: _TribeColors.muted,
+              style: TextStyle(
+                color: TribeColors.muted(context),
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1441,6 +1476,10 @@ class _TribeGroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final schedule = challenge.description?.trim();
+    final hasSchedule = schedule != null && schedule.isNotEmpty;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(22),
@@ -1449,43 +1488,76 @@ class _TribeGroupCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
+          color: TribeColors.card(context),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: <Color>[
-              const Color(0xFF0C2A2B),
-              const Color(0xFF0E141A),
+              TribeColors.accent(context).withValues(alpha: isDark ? 0.16 : 0.10),
+              TribeColors.card(context),
             ],
           ),
-          border: Border.all(color: _TribeColors.cardBorder),
+          border: Border.all(color: TribeColors.cardBorder(context)),
+          boxShadow: isDark
+              ? null
+              : <BoxShadow>[
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            Row(
+              children: <Widget>[
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.20)
+                        : Colors.white.withValues(alpha: 0.60),
+                    border: Border.all(color: TribeColors.cardBorder(context)),
+                  ),
+                  child: Icon(
+                    Icons.shield_outlined,
+                    color: TribeColors.textPrimary(context),
+                    size: 18,
+                  ),
+                ),
+                const Spacer(),
+                Icon(
+                  Icons.arrow_outward,
+                  size: 18,
+                  color: TribeColors.muted(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             Text(
               challenge.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: TribeColors.textPrimary(context),
                 fontWeight: FontWeight.w800,
                 fontSize: 18,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
-              'Small group · ${challenge.memberCount} members',
-              style: const TextStyle(
-                color: _TribeColors.muted,
+              '${challenge.memberCount} members',
+              style: TextStyle(
+                color: TribeColors.muted(context),
                 fontWeight: FontWeight.w600,
               ),
             ),
             const Spacer(),
-            if (challenge.description != null &&
-                challenge.description!.trim().isNotEmpty)
-              _SmallPill(
-                label: challenge.description!,
-              ),
+            if (hasSchedule) _SmallPill(label: schedule),
           ],
         ),
       ),
@@ -1503,16 +1575,16 @@ class _SmallPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.25),
+        color: TribeColors.chip(context),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _TribeColors.cardBorder),
+        border: Border.all(color: TribeColors.cardBorder(context)),
       ),
       child: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: TribeColors.textPrimary(context),
           fontWeight: FontWeight.w700,
           fontSize: 12,
         ),
@@ -1540,9 +1612,9 @@ class _TribeSupportCard extends StatelessWidget {
       child: Ink(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: _TribeColors.card,
+          color: TribeColors.card(context),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: _TribeColors.cardBorder),
+          border: Border.all(color: TribeColors.cardBorder(context)),
         ),
         child: Row(
           children: <Widget>[
@@ -1554,8 +1626,8 @@ class _TribeSupportCard extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: TribeColors.textPrimary(context),
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
                     ),
@@ -1563,15 +1635,15 @@ class _TribeSupportCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: _TribeColors.muted,
+                    style: TextStyle(
+                      color: TribeColors.muted(context),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: _TribeColors.muted),
+            Icon(Icons.chevron_right, color: TribeColors.muted(context)),
           ],
         ),
       ),
@@ -1603,9 +1675,9 @@ class _TribeThreadRow extends StatelessWidget {
       child: Ink(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: _TribeColors.card,
+          color: TribeColors.card(context),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: _TribeColors.cardBorder),
+          border: Border.all(color: TribeColors.cardBorder(context)),
         ),
         child: Row(
           children: <Widget>[
@@ -1617,8 +1689,8 @@ class _TribeThreadRow extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     alias,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: TribeColors.textPrimary(context),
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
                     ),
@@ -1626,15 +1698,15 @@ class _TribeThreadRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     'Last activity $last',
-                    style: const TextStyle(
-                      color: _TribeColors.muted,
+                    style: TextStyle(
+                      color: TribeColors.muted(context),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: _TribeColors.muted),
+            Icon(Icons.chevron_right, color: TribeColors.muted(context)),
           ],
         ),
       ),
@@ -1646,30 +1718,76 @@ class _TribeGroupRow extends StatelessWidget {
   const _TribeGroupRow({
     required this.challenge,
     required this.joined,
+    required this.hasUnread,
     required this.onTap,
     required this.onJoin,
   });
 
   final Challenge challenge;
   final bool joined;
+  final bool hasUnread;
   final VoidCallback onTap;
   final VoidCallback? onJoin;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final schedule = challenge.description?.trim();
+    final hasSchedule = schedule != null && schedule.isNotEmpty;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
-      child: Container(
+      child: Ink(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: _TribeColors.card,
+          color: TribeColors.card(context),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: _TribeColors.cardBorder),
+          border: Border.all(color: TribeColors.cardBorder(context)),
+          boxShadow: isDark
+              ? null
+              : <BoxShadow>[
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 14,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
         ),
         child: Row(
           children: <Widget>[
-            const Icon(Icons.shield_outlined, color: _TribeColors.muted),
+            Stack(
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: TribeColors.accent(context).withValues(
+                      alpha: isDark ? 0.12 : 0.10,
+                    ),
+                    border: Border.all(color: TribeColors.cardBorder(context)),
+                  ),
+                  child: Icon(
+                    Icons.shield_outlined,
+                    color: isDark
+                        ? TribeColors.accent(context)
+                        : TribeColors.textPrimary(context),
+                  ),
+                ),
+                if (hasUnread)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: UnreadDot(
+                      size: 12,
+                      color: TribeColors.red(context),
+                      borderColor: TribeColors.card(context),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1677,38 +1795,78 @@ class _TribeGroupRow extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     challenge.title,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: TribeColors.textPrimary(context),
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${challenge.memberCount} members',
-                    style: const TextStyle(
-                      color: _TribeColors.muted,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(
+                            Icons.people_outline,
+                            size: 16,
+                            color: TribeColors.muted(context),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${challenge.memberCount} members',
+                            style: TextStyle(
+                              color: TribeColors.muted(context),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (hasSchedule) _SmallPill(label: schedule),
+                    ],
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 12),
-            OutlinedButton(
-              onPressed: onJoin,
-              style: OutlinedButton.styleFrom(
-                foregroundColor:
-                    joined ? _TribeColors.muted : _TribeColors.accent,
-                side: BorderSide(
-                  color: joined ? _TribeColors.cardBorder : _TribeColors.accent,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              child: Text(joined ? 'Open' : 'Join'),
-            ),
+            joined
+                ? FilledButton.tonal(
+                    onPressed: onJoin,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: TribeColors.chip(context),
+                      foregroundColor: TribeColors.textPrimary(context),
+                      minimumSize: const Size(0, 42),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    child: const Text(
+                      'Open',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  )
+                : FilledButton(
+                    onPressed: onJoin,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: TribeColors.accent(context),
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size(0, 42),
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    child: const Text(
+                      'Join',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ),
           ],
         ),
       ),
@@ -1733,24 +1891,24 @@ class _TribeHighlightCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: <Color>[
-            Color(0xFF0C2A2B),
-            Color(0xFF0E141A),
-          ],
-        ),
-        border: Border.all(color: _TribeColors.cardBorder),
+        color: TribeColors.card(context),
+        border: Border.all(color: TribeColors.cardBorder(context)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         children: <Widget>[
           Container(
             width: 46,
             height: 46,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFF0F7F5A),
+              color: TribeColors.accent(context),
             ),
             child: Icon(icon, color: Colors.black, size: 22),
           ),
@@ -1761,8 +1919,8 @@ class _TribeHighlightCard extends StatelessWidget {
               children: <Widget>[
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: TribeColors.textPrimary(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 18,
                   ),
@@ -1770,8 +1928,8 @@ class _TribeHighlightCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: _TribeColors.muted,
+                  style: TextStyle(
+                    color: TribeColors.muted(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),

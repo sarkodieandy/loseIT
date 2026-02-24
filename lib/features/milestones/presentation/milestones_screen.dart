@@ -9,18 +9,34 @@ import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
 
 class MilestonesScreen extends ConsumerWidget {
-  const MilestonesScreen({super.key});
+  /// optional id passed via deep link/query parameters to highlight
+  final String? initialAchievementId;
+
+  const MilestonesScreen({super.key, this.initialAchievementId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final milestonesAsync = ref.watch(customMilestonesProvider);
     final isPremium = ref.watch(premiumControllerProvider);
 
+    // if a deep link brought us here with an achievement id, show a simple
+    // snack bar notification so the user knows why they were redirected.
+    if (initialAchievementId != null && milestonesAsync is AsyncData) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('New achievement unlocked!'),
+          ),
+        );
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Custom Milestones')),
       body: PremiumGate(
         lockedTitle: 'Custom Milestones',
-        lockedDescription: 'Upgrade to create personal goals and progress rings.',
+        lockedDescription:
+            'Upgrade to create personal goals and progress rings.',
         child: milestonesAsync.when(
           data: (milestones) {
             if (milestones.isEmpty) {
@@ -56,7 +72,7 @@ class MilestonesScreen extends ConsumerWidget {
           error: (error, _) => Center(child: Text('Failed: $error')),
         ),
       ),
-      floatingActionButton: isPremium
+      floatingActionButton: isPremium.isPremium
           ? FloatingActionButton(
               heroTag: 'milestones_add',
               onPressed: () => _showAddDialog(context, ref),
@@ -115,7 +131,9 @@ class MilestonesScreen extends ConsumerWidget {
                     : unitController.text.trim(),
                 createdAt: DateTime.now().toUtc(),
               );
-              await ref.read(milestonesRepositoryProvider).createMilestone(milestone);
+              await ref
+                  .read(milestonesRepositoryProvider)
+                  .createMilestone(milestone);
               ref.invalidate(customMilestonesProvider);
               if (context.mounted) Navigator.of(context).pop();
             },

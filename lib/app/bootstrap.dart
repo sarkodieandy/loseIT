@@ -1,10 +1,12 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/utils/app_logger.dart';
-import '../data/services/notification_service.dart';
+import '../core/services/notification_service.dart';
 import '../data/services/local_cache_service.dart';
 import '../data/services/revenuecat_service.dart';
 
@@ -37,12 +39,23 @@ class AppBootstrap {
       ),
     );
 
+    // Log device platform for debugging RevenueCat setup
+    final platform = Platform.isIOS
+        ? 'iOS'
+        : Platform.isAndroid
+            ? 'Android'
+            : 'Unknown';
+    AppLogger.info('Bootstrap: platform=$platform');
+
     final revenueCatKey = dotenv.env['REVENUECAT_IOS_API_KEY'] ?? '';
     if (revenueCatKey.trim().isEmpty) {
       AppLogger.warn(
           'Missing REVENUECAT_IOS_API_KEY in .env (premium disabled)');
     } else {
-      AppLogger.info('Bootstrap: initializing RevenueCat');
+      final masked = revenueCatKey.length > 8
+          ? '${revenueCatKey.substring(0, 4)}...${revenueCatKey.substring(revenueCatKey.length - 4)}'
+          : '***';
+      AppLogger.info('Bootstrap: RevenueCat key=$masked, platform=$platform');
       await RevenueCatService.instance.initialize(
         apiKey: revenueCatKey,
         entitlementId: dotenv.env['REVENUECAT_ENTITLEMENT_ID'] ?? 'premium',
@@ -56,7 +69,8 @@ class AppBootstrap {
     }
 
     AppLogger.info('Bootstrap: initializing notifications');
-    await NotificationService.instance.initialize();
+    final supabaseClient = Supabase.instance.client;
+    await NotificationService().initialize(supabaseClient);
     AppLogger.info('Bootstrap: done');
 
     Supabase.instance.client.auth.onAuthStateChange.listen((event) {

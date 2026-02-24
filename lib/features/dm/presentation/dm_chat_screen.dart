@@ -138,7 +138,11 @@ class _DmChatScreenState extends ConsumerState<DmChatScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(_resolveTitle(session.user.id)),
+            title: Text(
+              _resolveTitle(session.user.id),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           resizeToAvoidBottomInset: false,
           body: Column(

@@ -2,6 +2,9 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+import '../../../core/utils/app_logger.dart';
 
 import '../../../core/widgets/premium_gate.dart';
 import '../../../core/widgets/section_card.dart';
@@ -19,29 +22,37 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
   final AudioPlayer _player = AudioPlayer();
   String? _currentId;
 
-  final List<_FocusTrack> _tracks = const <_FocusTrack>[
+  late final List<_FocusTrack> _tracks = <_FocusTrack>[
     _FocusTrack(
       id: 'breath_free',
       title: '90s Breathing Reset',
       duration: '1:30',
       isPremium: false,
-      url: '',
+      url: _envOrAsset('FOCUS_TRACK_BREATH', 'assets/audio/breath_free.mp3'),
     ),
     _FocusTrack(
       id: 'craving_release',
       title: 'Craving Release',
       duration: '5:00',
       isPremium: true,
-      url: '',
+      url: _envOrAsset(
+          'FOCUS_TRACK_CRAVING', 'assets/audio/craving_release.mp3'),
     ),
     _FocusTrack(
       id: 'night_wind_down',
       title: 'Night Wind Down',
       duration: '7:00',
       isPremium: true,
-      url: '',
+      url: _envOrAsset(
+          'FOCUS_TRACK_WIND_DOWN', 'assets/audio/night_wind_down.mp3'),
     ),
   ];
+
+  String _envOrAsset(String key, String assetPath) {
+    final val = dotenv.env[key]?.trim();
+    if (val != null && val.isNotEmpty) return val;
+    return assetPath;
+  }
 
   @override
   void dispose() {
@@ -58,12 +69,28 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
     }
     if (track.url.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Audio not configured yet.')),
+        const SnackBar(content: Text('Audio not configured. Check .env keys.')),
       );
+      AppLogger.warn('Attempted to play track with empty URL: ${track.id}');
       return;
     }
-    await _player.play(UrlSource(track.url));
-    setState(() => _currentId = track.id);
+
+    try {
+      // support asset paths as well as http(s)
+      if (track.url.startsWith('http')) {
+        await _player.play(UrlSource(track.url));
+      } else {
+        await _player.play(AssetSource(track.url));
+      }
+      setState(() => _currentId = track.id);
+    } catch (e, st) {
+      AppLogger.error('focus.play', e, st);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to play audio.')),
+        );
+      }
+    }
   }
 
   @override
@@ -163,22 +190,36 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          SectionCard(
-            child: Row(
-              children: <Widget>[
-                const Icon(Icons.timer_outlined),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Start an urge timer and ride it out with a breathing guide.',
-                    style: Theme.of(context).textTheme.bodyMedium,
+          // make whole card tappable for better UX
+          GestureDetector(
+            onTap: () {
+              AppLogger.info('navigating to urge timer');
+              try {
+                context.push('/focus/urge');
+              } catch (e) {
+                AppLogger.error('router.push.urge', e, null);
+              }
+            },
+            child: SectionCard(
+              child: Row(
+                children: <Widget>[
+                  const Icon(Icons.timer_outlined),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Start an urge timer and ride it out with a breathing guide.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                   ),
-                ),
-                TextButton(
-                  onPressed: () => context.push('/focus/urge'),
-                  child: const Text('Start'),
-                ),
-              ],
+                  TextButton(
+                    onPressed: () {
+                      AppLogger.info('timer button tapped');
+                      context.push('/focus/urge');
+                    },
+                    child: const Text('Start'),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -190,7 +231,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
           ),
           const SizedBox(height: 16),
           ..._tracks.map((track) {
-            final locked = track.isPremium && !isPremium;
+            final locked = track.isPremium && !isPremium.isPremium;
             final card = SectionCard(
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -199,7 +240,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
                 trailing: Icon(
                   _currentId == track.id ? Icons.stop : Icons.play_arrow,
                 ),
-                onTap: () => _play(track, isPremium),
+                onTap: () => _play(track, isPremium.isPremium),
               ),
             );
             if (!locked) return card;

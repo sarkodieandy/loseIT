@@ -11,7 +11,7 @@ create table if not exists public.profiles (
   motivation_photo_url text null,
   -- Public alias shown in community UI (never an email/name).
   alias text null,
-  -- Trial tracking for 7-day trial period
+  -- Trial tracking for 3-day trial period
   trial_ends_at timestamptz null,
   trial_used boolean not null default false,
   created_at timestamptz not null default now(),

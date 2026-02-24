@@ -7,16 +7,7 @@ import '../../../core/widgets/premium_gate.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
-
-class _GroupColors {
-  static const Color bgTop = Color(0xFF050607);
-  static const Color bgBottom = Color(0xFF0B0E11);
-  static const Color card = Color(0xFF0E1216);
-  static const Color cardBorder = Color(0x1AFFFFFF);
-  static const Color muted = Color(0xFF9AA3AB);
-  static const Color accent = Color(0xFF26B7FF);
-  static const Color field = Color(0xFF0D1115);
-}
+import 'tribe_colors.dart';
 
 class CreateGroupScreen extends ConsumerStatefulWidget {
   const CreateGroupScreen({super.key});
@@ -82,12 +73,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _GroupColors.bgTop,
+      backgroundColor: TribeColors.bgTop(context),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.white,
-        title: const Text('New Group'),
+        title: Text('New Group'),
       ),
       body: PremiumGate(
         lockedTitle: 'Create Your Own Group',
@@ -102,8 +93,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: <Color>[
-                      _GroupColors.bgTop,
-                      _GroupColors.bgBottom,
+                      TribeColors.bgTop(context),
+                      TribeColors.bgBottom(context),
                     ],
                   ),
                 ),
@@ -112,10 +103,10 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             ListView(
               padding: const EdgeInsets.all(20),
               children: <Widget>[
-                const Text(
+                Text(
                   'Create a small accountability group. Keep it anonymous, supportive, and focused.',
                   style: TextStyle(
-                    color: _GroupColors.muted,
+                    color: TribeColors.muted(context),
                     fontSize: 16,
                     height: 1.35,
                     fontWeight: FontWeight.w600,
@@ -125,17 +116,17 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: _GroupColors.card,
+                    color: TribeColors.card(context),
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: _GroupColors.cardBorder),
+                    border: Border.all(color: TribeColors.cardBorder(context)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      const Text(
+                      Text(
                         'Group name',
                         style: TextStyle(
-                          color: _GroupColors.muted,
+                          color: TribeColors.muted(context),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -145,10 +136,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
                           hintText: 'Weekend Shield',
-                          hintStyle:
-                              const TextStyle(color: _GroupColors.muted),
+                          hintStyle: TextStyle(color: TribeColors.muted(context)),
                           filled: true,
-                          fillColor: _GroupColors.field,
+                          fillColor: TribeColors.field(context),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(18),
                             borderSide: BorderSide.none,
@@ -160,10 +150,10 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const Text(
+                      Text(
                         'Check-in label (optional)',
                         style: TextStyle(
-                          color: _GroupColors.muted,
+                          color: TribeColors.muted(context),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -173,10 +163,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
                           hintText: 'Daily 9pm check-in',
-                          hintStyle:
-                              const TextStyle(color: _GroupColors.muted),
+                          hintStyle: TextStyle(color: TribeColors.muted(context)),
                           filled: true,
-                          fillColor: _GroupColors.field,
+                          fillColor: TribeColors.field(context),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(18),
                             borderSide: BorderSide.none,
@@ -196,7 +185,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                   child: FilledButton(
                     onPressed: _saving ? null : _create,
                     style: FilledButton.styleFrom(
-                      backgroundColor: _GroupColors.accent,
+                      backgroundColor: TribeColors.accent(context),
                       foregroundColor: Colors.black,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),
@@ -215,14 +204,14 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                               color: Colors.black,
                             ),
                           )
-                        : const Text('Create group'),
+                        : Text('Create group'),
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'You will be joined automatically. Keep personal details out of group names.',
                   style: TextStyle(
-                    color: _GroupColors.muted,
+                    color: TribeColors.muted(context),
                     fontWeight: FontWeight.w600,
                     height: 1.35,
                   ),

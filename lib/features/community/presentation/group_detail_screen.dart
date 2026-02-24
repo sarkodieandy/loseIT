@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../../core/utils/anonymous_name.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/unread_dot.dart';
 import '../../../data/models/group_checkin.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
+import '../../../providers/group_chat_unread_providers.dart';
 import '../../../providers/repository_providers.dart';
 
 class _GroupColors {
@@ -37,6 +39,9 @@ class GroupDetailScreen extends ConsumerWidget {
     final isJoined = joinedAsync.asData?.value
             .any((item) => item.challengeId == groupId) ??
         false;
+    final hasUnread = isJoined
+        ? ref.watch(groupChatHasUnreadProvider(groupId))
+        : false;
 
     return Scaffold(
       backgroundColor: _GroupColors.bgTop,
@@ -133,7 +138,24 @@ class GroupDetailScreen extends ConsumerWidget {
                   _Card(
                     child: Row(
                       children: <Widget>[
-                        const Icon(Icons.chat_bubble_outline, color: _GroupColors.muted),
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: <Widget>[
+                            const Icon(
+                              Icons.chat_bubble_outline,
+                              color: _GroupColors.muted,
+                            ),
+                            if (hasUnread)
+                              const Positioned(
+                                right: -1,
+                                top: -1,
+                                child: UnreadDot(
+                                  size: 12,
+                                  borderColor: _GroupColors.card,
+                                ),
+                              ),
+                          ],
+                        ),
                         const SizedBox(width: 10),
                         const Expanded(
                           child: Text(

@@ -7,16 +7,7 @@ import '../../../core/utils/app_logger.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
-
-class _ComposerColors {
-  static const Color bgTop = Color(0xFF050607);
-  static const Color bgBottom = Color(0xFF0B0E11);
-  static const Color card = Color(0xFF0E1216);
-  static const Color cardBorder = Color(0x1AFFFFFF);
-  static const Color muted = Color(0xFF9AA3AB);
-  static const Color accent = Color(0xFF26B7FF);
-  static const Color chip = Color(0xFF0D1115);
-}
+import 'tribe_colors.dart';
 
 class CreatePostScreen extends ConsumerStatefulWidget {
   const CreatePostScreen({super.key});
@@ -93,9 +84,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       if (_category == 'relapse') streakDays = 0;
 
       final alias = anonymousNameFor(session.user.id);
-      await ref
-          .read(communityRepositoryProvider)
-          .createPost(
+      await ref.read(communityRepositoryProvider).createPost(
             content: text,
             anonymousName: alias,
             category: _category,
@@ -124,12 +113,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     final availableBadges = _badges[_category] ?? const <String>[];
 
     return Scaffold(
-      backgroundColor: _ComposerColors.bgTop,
+      backgroundColor: TribeColors.bgTop(context),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('New Post'),
+        title: Text('New Post'),
       ),
       body: Stack(
         children: <Widget>[
@@ -140,8 +129,8 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: <Color>[
-                    _ComposerColors.bgTop,
-                    _ComposerColors.bgBottom,
+                    TribeColors.bgTop(context),
+                    TribeColors.bgBottom(context),
                   ],
                 ),
               ),
@@ -150,20 +139,20 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           ListView(
             padding: const EdgeInsets.all(20),
             children: <Widget>[
-              const Text(
+              Text(
                 'Anonymous support from people on the same path.',
                 style: TextStyle(
-                  color: _ComposerColors.muted,
+                  color: TribeColors.muted(context),
                   fontSize: 16,
                   height: 1.35,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
+              Text(
                 'Category',
                 style: TextStyle(
-                  color: _ComposerColors.muted,
+                  color: TribeColors.muted(context),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -193,10 +182,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               ),
               const SizedBox(height: 18),
               if (availableBadges.isNotEmpty) ...[
-                const Text(
+                Text(
                   'Label',
                   style: TextStyle(
-                    color: _ComposerColors.muted,
+                    color: TribeColors.muted(context),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -218,9 +207,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: _ComposerColors.card,
+                  color: TribeColors.card(context),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: _ComposerColors.cardBorder),
+                  border: Border.all(color: TribeColors.cardBorder(context)),
                 ),
                 child: TextField(
                   controller: _controller,
@@ -232,13 +221,13 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   ),
                   decoration: InputDecoration(
                     hintText: 'Write your post…',
-                    hintStyle: const TextStyle(color: _ComposerColors.muted),
+                    hintStyle: TextStyle(color: TribeColors.muted(context)),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(18),
                       borderSide: BorderSide.none,
                     ),
                     filled: true,
-                    fillColor: _ComposerColors.chip,
+                    fillColor: TribeColors.chip(context),
                     contentPadding: const EdgeInsets.all(14),
                   ),
                 ),
@@ -249,7 +238,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 child: FilledButton(
                   onPressed: _saving ? null : _submit,
                   style: FilledButton.styleFrom(
-                    backgroundColor: _ComposerColors.accent,
+                    backgroundColor: TribeColors.accent(context),
                     foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
@@ -265,14 +254,14 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Post'),
+                      : Text('Post'),
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Stay anonymous. Be kind. No names, no profiles.',
                 style: TextStyle(
-                  color: _ComposerColors.muted,
+                  color: TribeColors.muted(context),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -313,16 +302,19 @@ class _ComposerPill extends StatelessWidget {
         curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? _ComposerColors.accent : _ComposerColors.chip,
+          color: selected
+              ? TribeColors.accent(context)
+              : TribeColors.chip(context),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: selected ? Colors.transparent : _ComposerColors.cardBorder,
+            color:
+                selected ? Colors.transparent : TribeColors.cardBorder(context),
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? Colors.black : _ComposerColors.muted,
+            color: selected ? Colors.black : TribeColors.muted(context),
             fontWeight: FontWeight.w800,
           ),
         ),

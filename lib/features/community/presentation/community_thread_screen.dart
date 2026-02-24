@@ -8,16 +8,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
-
-class _ThreadColors {
-  static const Color bgTop = Color(0xFF050607);
-  static const Color bgBottom = Color(0xFF0B0E11);
-  static const Color card = Color(0xFF0E1216);
-  static const Color cardBorder = Color(0x1AFFFFFF);
-  static const Color muted = Color(0xFF9AA3AB);
-  static const Color accent = Color(0xFF26B7FF);
-  static const Color field = Color(0xFF0D1115);
-}
+import 'tribe_colors.dart';
 
 class CommunityThreadScreen extends ConsumerStatefulWidget {
   const CommunityThreadScreen({
@@ -28,7 +19,8 @@ class CommunityThreadScreen extends ConsumerStatefulWidget {
   final String postId;
 
   @override
-  ConsumerState<CommunityThreadScreen> createState() => _CommunityThreadScreenState();
+  ConsumerState<CommunityThreadScreen> createState() =>
+      _CommunityThreadScreenState();
 }
 
 class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
@@ -91,7 +83,7 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
     final repliesAsync = ref.watch(communityRepliesProvider(widget.postId));
 
     return Scaffold(
-      backgroundColor: _ThreadColors.bgTop,
+      backgroundColor: TribeColors.bgTop(context),
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -108,8 +100,8 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: <Color>[
-                    _ThreadColors.bgTop,
-                    _ThreadColors.bgBottom,
+                    TribeColors.bgTop(context),
+                    TribeColors.bgBottom(context),
                   ],
                 ),
               ),
@@ -122,16 +114,19 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                 child: postAsync.when(
                   data: (post) {
                     if (post == null) {
-                      return const _ThreadCard(
+                      return _ThreadCard(
                         child: Text(
                           'Post not found.',
-                          style: TextStyle(color: _ThreadColors.muted),
+                          style: TextStyle(color: TribeColors.muted(context)),
                         ),
                       );
                     }
-                    final streak = _streakText(post.category, post.streakDays, post.streakLabel);
+                    final streak = _streakText(
+                        post.category, post.streakDays, post.streakLabel);
                     final header = streak.isEmpty ? 'Anon' : 'Anon • $streak';
-                    final badge = (post.badge?.trim().isNotEmpty ?? false) ? post.badge!.trim() : null;
+                    final badge = (post.badge?.trim().isNotEmpty ?? false)
+                        ? post.badge!.trim()
+                        : null;
                     return _ThreadCard(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,7 +141,7 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                                   children: <Widget>[
                                     Text(
                                       header,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w800,
                                         fontSize: 16,
@@ -155,8 +150,8 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                                     const SizedBox(height: 4),
                                     Text(
                                       '${(post.topic?.trim().isNotEmpty ?? false) ? post.topic!.trim() : 'General'} · ${Formatters.timeAgo(post.createdAt)}',
-                                      style: const TextStyle(
-                                        color: _ThreadColors.muted,
+                                      style: TextStyle(
+                                        color: TribeColors.muted(context),
                                         fontWeight: FontWeight.w600,
                                         fontSize: 13,
                                       ),
@@ -170,7 +165,7 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                           const SizedBox(height: 12),
                           Text(
                             post.content,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                               height: 1.35,
@@ -181,16 +176,16 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                       ),
                     );
                   },
-                  loading: () => const _ThreadCard(
+                  loading: () => _ThreadCard(
                     child: Text(
                       'Loading post…',
-                      style: TextStyle(color: _ThreadColors.muted),
+                      style: TextStyle(color: TribeColors.muted(context)),
                     ),
                   ),
                   error: (error, _) => _ThreadCard(
                     child: Text(
                       'Error: $error',
-                      style: const TextStyle(color: _ThreadColors.muted),
+                      style: TextStyle(color: TribeColors.muted(context)),
                     ),
                   ),
                 ),
@@ -199,10 +194,10 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                 child: repliesAsync.when(
                   data: (replies) {
                     if (replies.isEmpty) {
-                      return const Center(
+                      return Center(
                         child: Text(
                           'No replies yet.',
-                          style: TextStyle(color: _ThreadColors.muted),
+                          style: TextStyle(color: TribeColors.muted(context)),
                         ),
                       );
                     }
@@ -220,7 +215,7 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                                 children: <Widget>[
                                   Text(
                                     'Anon',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w800,
                                       fontSize: 15,
@@ -228,8 +223,8 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                                   ),
                                   Text(
                                     Formatters.timeAgo(reply.createdAt),
-                                    style: const TextStyle(
-                                      color: _ThreadColors.muted,
+                                    style: TextStyle(
+                                      color: TribeColors.muted(context),
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13,
                                     ),
@@ -239,7 +234,7 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                               const SizedBox(height: 8),
                               Text(
                                 reply.content,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 15,
                                   height: 1.35,
@@ -258,7 +253,7 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                   error: (error, _) => Center(
                     child: Text(
                       'Failed: $error',
-                      style: const TextStyle(color: _ThreadColors.muted),
+                      style: TextStyle(color: TribeColors.muted(context)),
                     ),
                   ),
                 ),
@@ -276,13 +271,13 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                           controller: _controller,
                           textInputAction: TextInputAction.send,
                           onSubmitted: (_) => _sendReply(),
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: Colors.white),
                           decoration: InputDecoration(
                             hintText: 'Write a reply…',
                             hintStyle:
-                                const TextStyle(color: _ThreadColors.muted),
+                                TextStyle(color: TribeColors.muted(context)),
                             filled: true,
-                            fillColor: _ThreadColors.field,
+                            fillColor: TribeColors.field(context),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(18),
                               borderSide: BorderSide.none,
@@ -302,7 +297,7 @@ class _CommunityThreadScreenState extends ConsumerState<CommunityThreadScreen> {
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: _ThreadColors.accent,
+                            color: TribeColors.accent(context),
                             borderRadius: BorderRadius.circular(18),
                           ),
                           child: Center(
@@ -344,9 +339,9 @@ class _ThreadCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _ThreadColors.card,
+        color: TribeColors.card(context),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: _ThreadColors.cardBorder),
+        border: Border.all(color: TribeColors.cardBorder(context)),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.35),
@@ -403,11 +398,11 @@ class _ThreadBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _ThreadColors.cardBorder),
+        border: Border.all(color: TribeColors.cardBorder(context)),
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.w800,
           fontSize: 13,

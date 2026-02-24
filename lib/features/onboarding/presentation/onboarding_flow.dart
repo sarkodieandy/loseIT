@@ -30,6 +30,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   int _pageIndex = 0;
   bool _submitting = false;
 
+  // true until we discover the backend has disabled anonymous logins
+  bool _anonymousAllowed = true;
+
   late final TextEditingController _dailySpendController;
   late final TextEditingController _dailyTimeController;
 
@@ -91,6 +94,22 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     });
   }
 
+  /// Prompt the user for email authentication and repeat onboarding.
+  Future<void> _promptForEmail(AuthRepository authRepo) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => _EmailAuthDialog(
+        authRepo: authRepo,
+        initialIsSignUp: true,
+      ),
+    );
+    if (result == true) {
+      await _completeOnboarding();
+    } else {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   Future<void> _completeOnboarding() async {
     if (_submitting) return;
     setState(() => _submitting = true);
@@ -101,18 +120,72 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     final profileController = ref.read(profileControllerProvider.notifier);
 
     try {
-      // Avoid racing Riverpod auth providers right after an email sign-in.
-      // Supabase updates `auth.currentUser` immediately, while `sessionProvider`
-      // may lag by a frame.
-      final user =
-          Supabase.instance.client.auth.currentUser ??
-          (await authRepo.signInAnonymously()).user;
+      AppLogger.info('🔄 [ONBOARDING] _handleSignUp() START');
+      User? user = Supabase.instance.client.auth.currentUser;
+      AppLogger.info('🔄 [ONBOARDING] Current user: ${user?.id}');
+
       if (user == null) {
+        if (!_anonymousAllowed) {
+          await _promptForEmail(authRepo);
+          return;
+        }
+
+        AppLogger.info(
+            '🔄 [ONBOARDING] No current user, attempting anonymous sign-in...');
+        try {
+          AppLogger.info(
+              '🔄 [ONBOARDING] Calling authRepo.signInAnonymously()...');
+          user = (await authRepo.signInAnonymously()).user;
+          AppLogger.info(
+              '✅ [ONBOARDING] Anonymous sign-in SUCCESS: userId=${user?.id}');
+        } catch (e, stackTrace) {
+          if (e is AuthApiException &&
+              e.code == 'anonymous_provider_disabled') {
+            AppLogger.warn(
+                '⚠️ [ONBOARDING] Anonymous sign-in disabled by backend');
+            setState(() => _anonymousAllowed = false);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      'Anonymous login is disabled. Please create an account using email.'),
+                  duration: Duration(seconds: 5),
+                ),
+              );
+            }
+            if (mounted) await _promptForEmail(authRepo);
+            return;
+          }
+          AppLogger.error('onboarding.auth', e, stackTrace);
+          if (mounted) {
+            final message = switch (e) {
+              AppAuthException() => e.message,
+              AuthException() => e.message,
+              _ => e.toString(),
+            };
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(message.trim().isEmpty
+                    ? 'Failed to create session.'
+                    : 'Failed to create session: $message'),
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      if (user == null) {
+        AppLogger.error(
+            'onboarding.auth', 'User is still null after all attempts');
         throw Exception('Unable to create session.');
       }
 
       final existingProfile = await profileRepo.fetchProfile();
       if (existingProfile != null) {
+        AppLogger.info(
+            '✅ [ONBOARDING] Existing profile found, redirecting to home');
         await settings.setOnboardingComplete(true);
         await profileController.load();
         if (mounted) {
@@ -124,12 +197,15 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       String? photoUrl;
       if (_motivationPhoto != null) {
         try {
+          AppLogger.info('➕ [ONBOARDING] Uploading motivation photo...');
           photoUrl = await profileRepo.uploadMotivationPhoto(
             _motivationPhoto!,
             userId: user.id,
           );
-        } catch (error, stackTrace) {
-          AppLogger.error('onboarding.photoUpload', error, stackTrace);
+          AppLogger.info('✅ [ONBOARDING] Photo uploaded: $photoUrl');
+        } catch (e) {
+          AppLogger.warn(
+              '⚠️ [ONBOARDING] Photo upload failed (continuing): $e');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -157,6 +233,20 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       await profileRepo.createProfile(profile);
       await settings.setOnboardingComplete(true);
       await profileController.load();
+      // Auto-start the free trial for new accounts
+      final premiumController = ref.read(premiumControllerProvider.notifier);
+      final startedTrial = await premiumController.startTrial();
+      if (startedTrial) {
+        AppLogger.info('🎉 [ONBOARDING] 3-day trial started');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🎉 3‑day premium trial activated!'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
       if (mounted) {
         context.go('/');
       }
@@ -175,100 +265,121 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final padding = media.padding;
+    try {
+      final media = MediaQuery.of(context);
+      final padding = media.padding;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Row(
-                children: <Widget>[
-                  if (_pageIndex > 0)
-                    IconButton(
-                      onPressed: _back,
-                      icon: const Icon(Icons.arrow_back),
-                    ),
-                  Expanded(
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween<double>(end: (_pageIndex + 1) / 5),
-                      duration: const Duration(milliseconds: 320),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, _) => LinearProgressIndicator(
-                        value: value,
-                        minHeight: 6,
-                        borderRadius: BorderRadius.circular(999),
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Column(
+            children: <Widget>[
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Row(
+                  children: <Widget>[
+                    if (_pageIndex > 0)
+                      IconButton(
+                        onPressed: _back,
+                        icon: const Icon(Icons.arrow_back),
+                      ),
+                    Expanded(
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween<double>(end: (_pageIndex + 1) / 5),
+                        duration: const Duration(milliseconds: 320),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, _) => LinearProgressIndicator(
+                          value: value,
+                          minHeight: 6,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text('${_pageIndex + 1}/5'),
-                ],
+                    const SizedBox(width: 12),
+                    Text('${_pageIndex + 1}/5'),
+                  ],
+                ),
               ),
-            ),
-            Expanded(
-              child: PageView(
-                controller: _controller,
-                onPageChanged: (index) => setState(() => _pageIndex = index),
-                children: <Widget>[
-                  _WelcomeStep(
-                    onNext: _next,
-                    onSignIn: () async {
-                      final authRepo = ref.read(authRepositoryProvider);
-                      final result = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => _EmailAuthDialog(
-                          authRepo: authRepo,
-                          initialIsSignUp: false,
-                        ),
-                      );
-                      if (result == true) {
-                        await _completeOnboarding();
-                      }
-                    },
-                  ),
-                  _HabitStep(
-                    habits: _habits,
-                    habit: _habit,
-                    customHabit: _customHabit,
-                    spendController: _dailySpendController,
-                    timeController: _dailyTimeController,
-                    onChanged: (habit, custom, spend, time) {
-                      setState(() {
-                        _habit = habit;
-                        _customHabit = custom;
-                        _dailySpend = spend;
-                        _dailyTime = time;
-                      });
-                    },
-                    onNext: _next,
-                  ),
-                  _StartDateStep(
-                    startDate: _startDate,
-                    onDateChanged: (date) => setState(() => _startDate = date),
-                    onNext: _next,
-                  ),
-                  _MotivationStep(
-                    motivation: _motivation,
-                    photo: _motivationPhoto,
-                    onChanged: (value) => setState(() => _motivation = value),
-                    onPickPhoto: _pickPhoto,
-                    onNext: _next,
-                  ),
-                  _FinishStep(
-                    padding: padding,
-                    onSubmit: _completeOnboarding,
-                    submitting: _submitting,
-                  ),
-                ],
+              Expanded(
+                child: PageView(
+                  controller: _controller,
+                  onPageChanged: (index) => setState(() => _pageIndex = index),
+                  children: <Widget>[
+                    _WelcomeStep(
+                      onNext: _next,
+                      onSignIn: () async {
+                        final authRepo = ref.read(authRepositoryProvider);
+                        final result = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => _EmailAuthDialog(
+                            authRepo: authRepo,
+                            initialIsSignUp: false,
+                          ),
+                        );
+                        if (result == true) {
+                          await _completeOnboarding();
+                        }
+                      },
+                    ),
+                    _HabitStep(
+                      habits: _habits,
+                      habit: _habit,
+                      customHabit: _customHabit,
+                      spendController: _dailySpendController,
+                      timeController: _dailyTimeController,
+                      onChanged: (habit, custom, spend, time) {
+                        setState(() {
+                          _habit = habit;
+                          _customHabit = custom;
+                          _dailySpend = spend;
+                          _dailyTime = time;
+                        });
+                      },
+                      onNext: _next,
+                    ),
+                    _StartDateStep(
+                      startDate: _startDate,
+                      onDateChanged: (date) =>
+                          setState(() => _startDate = date),
+                      onNext: _next,
+                    ),
+                    _MotivationStep(
+                      motivation: _motivation,
+                      photo: _motivationPhoto,
+                      onChanged: (value) => setState(() => _motivation = value),
+                      onPickPhoto: _pickPhoto,
+                      onNext: _next,
+                    ),
+                    _FinishStep(
+                      padding: padding,
+                      onSubmit: _completeOnboarding,
+                      submitting: _submitting,
+                      anonymousAllowed: _anonymousAllowed,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    } catch (error, stackTrace) {
+      AppLogger.error('onboarding.build', error, stackTrace);
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'An unexpected error occurred while opening onboarding.\n'
+              'Please try again later.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ),
+      );
+    }
   }
 }
 
@@ -318,7 +429,11 @@ class _WelcomeStepState extends State<_WelcomeStep> {
   void initState() {
     super.initState();
     _imageController = PageController();
-    _autoTimer = Timer.periodic(_autoSlideDuration, (_) => _advanceSlide());
+    // start timer after first frame to avoid firing during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _autoTimer = Timer.periodic(_autoSlideDuration, (_) => _advanceSlide());
+    });
   }
 
   @override
@@ -331,11 +446,14 @@ class _WelcomeStepState extends State<_WelcomeStep> {
   void _advanceSlide() {
     if (!mounted || !_imageController.hasClients) return;
     final nextIndex = (_currentIndex + 1) % _slides.length;
-    _imageController.animateToPage(
-      nextIndex,
-      duration: _slideAnimationDuration,
-      curve: Curves.easeInOutCubic,
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_imageController.hasClients) return;
+      _imageController.animateToPage(
+        nextIndex,
+        duration: _slideAnimationDuration,
+        curve: Curves.easeInOutCubic,
+      );
+    });
   }
 
   @override
@@ -836,14 +954,16 @@ class _MotivationStep extends StatelessWidget {
           onChanged: onChanged,
         ),
         const SizedBox(height: 16),
-        Row(
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: <Widget>[
             OutlinedButton.icon(
               onPressed: onPickPhoto,
               icon: const Icon(Icons.photo),
               label: const Text('Add photo'),
             ),
-            const SizedBox(width: 12),
             if (photo != null)
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
@@ -868,11 +988,13 @@ class _FinishStep extends ConsumerWidget {
     required this.padding,
     required this.onSubmit,
     required this.submitting,
+    required this.anonymousAllowed,
   });
 
   final EdgeInsets padding;
   final VoidCallback onSubmit;
   final bool submitting;
+  final bool anonymousAllowed;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -940,8 +1062,9 @@ class _FinishStep extends ConsumerWidget {
         ),
         const SizedBox(height: 24),
         PrimaryButton(
-          label: 'Continue anonymously',
-          onPressed: submitting ? null : onSubmit,
+          label:
+              anonymousAllowed ? 'Continue anonymously' : 'Anonymous disabled',
+          onPressed: (submitting || !anonymousAllowed) ? null : onSubmit,
           isLoading: submitting,
         ),
         const SizedBox(height: 12),
@@ -1094,27 +1217,29 @@ class _EmailAuthDialogState extends State<_EmailAuthDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(_isSignUp ? 'Create account' : 'Sign in'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          TextField(
-            controller: _emailController,
-            decoration: const InputDecoration(labelText: 'Email'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _passwordController,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'Password'),
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: () => setState(() => _isSignUp = !_isSignUp),
-            child: Text(_isSignUp
-                ? 'Already have an account? Sign in'
-                : 'Need an account? Sign up'),
-          ),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            TextField(
+              controller: _emailController,
+              decoration: const InputDecoration(labelText: 'Email'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Password'),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => setState(() => _isSignUp = !_isSignUp),
+              child: Text(_isSignUp
+                  ? 'Already have an account? Sign in'
+                  : 'Need an account? Sign up'),
+            ),
+          ],
+        ),
       ),
       actions: <Widget>[
         TextButton(

@@ -30,10 +30,12 @@ import '../features/profile/presentation/profile_screen.dart';
 import '../features/relapse/presentation/relapse_screen.dart';
 import '../features/premium/presentation/paywall_screen.dart';
 import '../providers/app_providers.dart';
+import '../core/utils/app_logger.dart';
 import '../providers/data_providers.dart';
 import 'main_shell.dart';
 
-final _rootNavigatorKey = GlobalKey<NavigatorState>();
+// public navigator key used by other services (notifications, deep links, etc.)
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
   final onboardingComplete = ref.watch(onboardingCompleteProvider);
@@ -46,12 +48,14 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refreshNotifier.dispose);
 
   return GoRouter(
-    navigatorKey: _rootNavigatorKey,
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/',
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final session = ref.read(sessionProvider);
       final onOnboarding = state.matchedLocation == '/onboarding';
+      AppLogger.info(
+          'router.redirect session=${session?.user.id ?? 'none'}, onOnboarding=$onOnboarding, onboardingComplete=$onboardingComplete, hasProfile=$hasProfile');
 
       if (session == null || !onboardingComplete) {
         return onOnboarding ? null : '/onboarding';
@@ -73,7 +77,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const OnboardingFlow(),
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/paywall',
         builder: (context, state) => const PaywallScreen(),
       ),
@@ -125,12 +129,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/journal/new',
         builder: (context, state) => const JournalEditorScreen(),
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/journal/:id',
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
@@ -138,17 +142,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/community/new',
         builder: (context, state) => const CreatePostScreen(),
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/groups/new',
         builder: (context, state) => const CreateGroupScreen(),
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/groups/:id',
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
@@ -156,7 +160,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/groups/:id/chat',
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
@@ -164,7 +168,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/community/:id',
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
@@ -172,17 +176,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/relapse',
         builder: (context, state) => const RelapseScreen(),
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/dm',
         builder: (context, state) => const DmInboxScreen(),
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/dm/thread/:id',
         builder: (context, state) {
           final id = state.pathParameters['id'];
@@ -194,7 +198,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/dm/user/:userId',
         builder: (context, state) {
           final userId = state.pathParameters['userId'];
@@ -206,22 +210,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/habits',
         builder: (context, state) => const HabitsScreen(),
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/challenges',
         builder: (context, state) => const ChallengesScreen(),
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/support',
         builder: (context, state) => const SupportScreen(),
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/support/:id',
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
@@ -229,27 +233,31 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/focus',
         builder: (context, state) => const FocusScreen(),
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/focus/urge',
         builder: (context, state) => const UrgeTimerScreen(),
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/emergency-sos',
         builder: (context, state) => const EmergencySosScreen(),
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/milestones',
-        builder: (context, state) => const MilestonesScreen(),
+        builder: (context, state) {
+          // go_router state doesn't always expose queryParameters directly
+          final achievementId = state.uri.queryParameters['achievementId'];
+          return MilestonesScreen(initialAchievementId: achievementId);
+        },
       ),
       GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         path: '/insights',
         builder: (context, state) => const InsightsScreen(),
       ),

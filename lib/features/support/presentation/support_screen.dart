@@ -34,7 +34,8 @@ class SupportScreen extends ConsumerWidget {
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(connection.contactName ?? 'Support contact'),
-                    subtitle: Text(connection.relationship ?? 'Trusted contact'),
+                    subtitle:
+                        Text(connection.relationship ?? 'Trusted contact'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/support/${connection.id}'),
                   ),
@@ -48,7 +49,7 @@ class SupportScreen extends ConsumerWidget {
           error: (error, _) => Center(child: Text('Failed: $error')),
         ),
       ),
-      floatingActionButton: isPremium
+      floatingActionButton: isPremium.isPremium
           ? FloatingActionButton(
               heroTag: 'support_add',
               onPressed: () => _showAddDialog(context, ref),

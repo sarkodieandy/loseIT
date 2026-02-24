@@ -21,8 +21,10 @@ class BadgesGrid extends StatelessWidget {
       children: <Widget>[
         // Stats summary
         SectionCard(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 12,
+            alignment: WrapAlignment.spaceBetween,
             children: <Widget>[
               _StatItem('Common', '${stats['common']}'),
               _StatItem('Rare', '${stats['rare']}'),
@@ -110,6 +112,8 @@ class _StatItem extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.labelSmall,
         ),
       ],

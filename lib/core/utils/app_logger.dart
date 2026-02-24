@@ -43,8 +43,25 @@ class AppLogger {
           'error=${error.error}'
           ')';
     }
+    if (error is AuthApiException) {
+      return 'AuthApiException('
+          'code=${error.code}, '
+          'statusCode=${error.statusCode}, '
+          'message=${error.message}'
+          ')';
+    }
+    if (error is AuthRetryableFetchException) {
+      return 'AuthRetryableFetchException('
+          'statusCode=${error.statusCode}, '
+          'message=${error.message}'
+          ')';
+    }
     if (error is AuthException) {
-      return 'AuthException(message=${error.message})';
+      return 'AuthException('
+          'code=${error.code}, '
+          'statusCode=${error.statusCode}, '
+          'message=${error.message}'
+          ')';
     }
     return error.toString();
   }

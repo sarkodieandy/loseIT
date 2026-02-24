@@ -27,7 +27,7 @@ class UrgeTimerScreen extends ConsumerStatefulWidget {
 }
 
 class _UrgeTimerScreenState extends ConsumerState<UrgeTimerScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const List<Duration> _durations = <Duration>[
     Duration(seconds: 90),
     Duration(minutes: 3),
@@ -44,8 +44,9 @@ class _UrgeTimerScreenState extends ConsumerState<UrgeTimerScreen>
   void initState() {
     super.initState();
     _timer = AnimationController(vsync: this, duration: _selected);
-    _breath = AnimationController(vsync: this, duration: const Duration(seconds: 10))
-      ..repeat();
+    _breath =
+        AnimationController(vsync: this, duration: const Duration(seconds: 10))
+          ..repeat();
     _timer.addStatusListener((status) async {
       if (status == AnimationStatus.completed) {
         setState(() => _running = false);
@@ -63,6 +64,7 @@ class _UrgeTimerScreenState extends ConsumerState<UrgeTimerScreen>
   }
 
   void _resetTimer() {
+    AppLogger.info('urge timer reset');
     _timer.stop();
     _timer.value = 0;
     setState(() => _running = false);
@@ -70,6 +72,7 @@ class _UrgeTimerScreenState extends ConsumerState<UrgeTimerScreen>
 
   void _start() {
     if (_running) return;
+    AppLogger.info('urge timer starting, duration=$_selected');
     _timer.duration = _selected;
     _timer.forward(from: 0);
     setState(() => _running = true);
@@ -202,7 +205,8 @@ class _UrgeTimerScreenState extends ConsumerState<UrgeTimerScreen>
                                 SnackBar(content: Text(error.toString())),
                               );
                             } finally {
-                              if (context.mounted) setModalState(() => saving = false);
+                              if (context.mounted)
+                                setModalState(() => saving = false);
                             }
                           },
                     child: saving
@@ -267,7 +271,8 @@ class _UrgeTimerScreenState extends ConsumerState<UrgeTimerScreen>
                   ),
                   child: Row(
                     children: <Widget>[
-                      const Icon(Icons.timer_outlined, color: _UrgeColors.muted),
+                      const Icon(Icons.timer_outlined,
+                          color: _UrgeColors.muted),
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
@@ -287,7 +292,9 @@ class _UrgeTimerScreenState extends ConsumerState<UrgeTimerScreen>
                                 (d) => DropdownMenuItem<Duration>(
                                   value: d,
                                   child: Text(
-                                    d.inSeconds == 90 ? '1:30' : '${d.inMinutes} min',
+                                    d.inSeconds == 90
+                                        ? '1:30'
+                                        : '${d.inMinutes} min',
                                     style: const TextStyle(color: Colors.white),
                                   ),
                                 ),
@@ -308,10 +315,12 @@ class _UrgeTimerScreenState extends ConsumerState<UrgeTimerScreen>
                 Expanded(
                   child: Center(
                     child: AnimatedBuilder(
-                      animation: Listenable.merge(<Listenable>[_timer, _breath]),
+                      animation:
+                          Listenable.merge(<Listenable>[_timer, _breath]),
                       builder: (context, _) {
                         final progress = _timer.value.clamp(0.0, 1.0);
-                        final totalSeconds = (_timer.duration ?? _selected).inSeconds;
+                        final totalSeconds =
+                            (_timer.duration ?? _selected).inSeconds;
                         final remainingSeconds = math.max(
                           0,
                           (totalSeconds * (1 - progress)).ceil(),
@@ -320,7 +329,8 @@ class _UrgeTimerScreenState extends ConsumerState<UrgeTimerScreen>
                             (remainingSeconds ~/ 60).toString().padLeft(2, '0');
                         final ss =
                             (remainingSeconds % 60).toString().padLeft(2, '0');
-                        final breath = 0.92 + 0.10 * math.sin(_breath.value * math.pi * 2);
+                        final breath =
+                            0.92 + 0.10 * math.sin(_breath.value * math.pi * 2);
                         final ring = 1.0 - progress;
                         return Stack(
                           alignment: Alignment.center,
@@ -334,7 +344,8 @@ class _UrgeTimerScreenState extends ConsumerState<UrgeTimerScreen>
                                   shape: BoxShape.circle,
                                   gradient: RadialGradient(
                                     colors: <Color>[
-                                      _UrgeColors.accent.withValues(alpha: 0.22),
+                                      _UrgeColors.accent
+                                          .withValues(alpha: 0.22),
                                       _UrgeColors.bgTop,
                                     ],
                                   ),
@@ -371,7 +382,9 @@ class _UrgeTimerScreenState extends ConsumerState<UrgeTimerScreen>
                                 const SizedBox(height: 6),
                                 Text(
                                   _running
-                                      ? (_timer.isAnimating ? 'Breathe' : 'Paused')
+                                      ? (_timer.isAnimating
+                                          ? 'Breathe'
+                                          : 'Paused')
                                       : 'Ready',
                                   style: const TextStyle(
                                     color: _UrgeColors.muted,

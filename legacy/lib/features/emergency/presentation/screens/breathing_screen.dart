@@ -1,4 +1,35 @@
-import 'package:flutter/cupertino.dart';
+late final List<_FocusTrack> _tracks = <_FocusTrack>[
+  _FocusTrack(
+    id: 'breath_free',
+    title: '90s Breathing Reset',
+    duration: '1:30',
+    isPremium: false,
+    url: _envOrAsset('FOCUS_TRACK_BREATH', 'assets/audio.mp3'),
+
+  ),
+  _FocusTrack(
+    id: 'craving_release',
+    title: 'Craving Release',
+    duration: '5:00',
+    isPremium: true,
+    url: _envOrAsset('FOCUS_TRACK_CRAVING', 'assets/audio.mp3'),
+
+  ),
+  _FocusTrack(
+    id: 'night_wind_down',
+    title: 'Night Wind Down',
+    duration: '7:00',
+    isPremium: true,
+    url: _envOrAsset('FOCUS_TRACK_WIND_DOWN', 'assets/assets/audio.mp3'),
+  ),
+];
+
+String _envOrAsset(String key, String assetPath) {
+  
+  final val = dotenv.env[key]?.trim();
+  if (val != null && val.isNotEmpty) return val;
+  return assetPath;
+}import 'package:flutter/cupertino.dart';
 
 import '../../../../core/theme/discipline_colors.dart';
 import '../../../../core/theme/discipline_text_styles.dart';

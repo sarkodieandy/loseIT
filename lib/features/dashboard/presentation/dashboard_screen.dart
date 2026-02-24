@@ -29,8 +29,8 @@ class DashboardScreen extends ConsumerWidget {
     final profileAsync = ref.watch(profileControllerProvider);
     final habitsAsync = ref.watch(habitsProvider);
     final selectedHabitId = ref.watch(selectedHabitIdProvider);
-    final isPremium = ref.watch(premiumControllerProvider);
-    final promptsAsync = ref.watch(promptsProvider(isPremium as bool));
+    final isPremium = ref.watch(isPremiumProvider);
+    final promptsAsync = ref.watch(promptsProvider(isPremium));
     final journalAsync = ref.watch(journalControllerProvider);
     final milestonesAsync = ref.watch(customMilestonesProvider);
     final moodsAsync = ref.watch(moodLogsProvider);
@@ -693,24 +693,49 @@ class DashboardScreen extends ConsumerWidget {
                     ],
                     const SizedBox(height: 20),
                     reveal(
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => context.push('/journal/new'),
-                              icon: const Icon(Icons.edit_note),
-                              label: const Text('Add journal'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => context.go('/community'),
-                              icon: const Icon(Icons.groups),
-                              label: const Text('Community'),
-                            ),
-                          ),
-                        ],
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final narrow = constraints.maxWidth < 360;
+                          if (narrow) {
+                            return Column(
+                              children: <Widget>[
+                                OutlinedButton.icon(
+                                  onPressed: () =>
+                                      context.push('/journal/new'),
+                                  icon: const Icon(Icons.edit_note),
+                                  label: const Text('Add journal'),
+                                ),
+                                const SizedBox(height: 12),
+                                OutlinedButton.icon(
+                                  onPressed: () => context.go('/community'),
+                                  icon: const Icon(Icons.groups),
+                                  label: const Text('Community'),
+                                ),
+                              ],
+                            );
+                          }
+
+                          return Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () =>
+                                      context.push('/journal/new'),
+                                  icon: const Icon(Icons.edit_note),
+                                  label: const Text('Add journal'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => context.go('/community'),
+                                  icon: const Icon(Icons.groups),
+                                  label: const Text('Community'),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 12),

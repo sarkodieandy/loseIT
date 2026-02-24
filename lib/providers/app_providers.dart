@@ -6,6 +6,7 @@ import '../data/services/revenuecat_service.dart';
 import '../data/services/emergency_sos_service.dart';
 import '../data/services/ai_relapse_predictor_service.dart';
 import '../data/services/badge_service.dart';
+import '../data/repositories/premium_features_repository.dart';
 import 'settings_controller.dart';
 import 'premium_controller.dart';
 
@@ -68,4 +69,16 @@ final aiRelapsePredictorProvider = Provider<AiRelapsePredictorService>((ref) {
 
 final badgeServiceProvider = Provider<BadgeService>((ref) {
   return BadgeService.instance;
+});
+final premiumFeaturesRepositoryProvider =
+    Provider<PremiumFeaturesRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return PremiumFeaturesRepository(client);
+});
+
+// ========== USER CONTEXT ==========
+
+final userIdProvider = Provider<String?>((ref) {
+  final session = ref.watch(sessionProvider);
+  return session?.user.id;
 });

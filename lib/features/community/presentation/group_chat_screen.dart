@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,20 +8,27 @@ import '../../../core/utils/anonymous_name.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/group_message.dart';
+import '../../../data/services/local_cache_service.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
+import '../../../providers/group_chat_unread_providers.dart';
 import '../../../providers/repository_providers.dart';
+import 'tribe_colors.dart';
 
 class _ChatColors {
-  static const Color bgTop = Color(0xFF050607);
-  static const Color bgBottom = Color(0xFF0B0E11);
-  static const Color card = Color(0xFF0E1216);
-  static const Color cardBorder = Color(0x1AFFFFFF);
-  static const Color muted = Color(0xFF9AA3AB);
-  static const Color accent = Color(0xFF26B7FF);
-  static const Color field = Color(0xFF0D1115);
-  static const Color mineBubble = Color(0xFF26B7FF);
-  static const Color otherBubble = Color(0xFF10161C);
+  static Color bgTop(BuildContext context) => TribeColors.bgTop(context);
+  static Color bgBottom(BuildContext context) => TribeColors.bgBottom(context);
+  static Color card(BuildContext context) => TribeColors.card(context);
+  static Color cardBorder(BuildContext context) => TribeColors.cardBorder(context);
+  static Color muted(BuildContext context) => TribeColors.muted(context);
+  static Color accent(BuildContext context) => TribeColors.accent(context);
+  static Color field(BuildContext context) => TribeColors.field(context);
+
+  static Color mineBubble(BuildContext context) => TribeColors.accent(context);
+  static Color otherBubble(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF10161C)
+          : const Color(0xFF10161C);
 }
 
 class GroupChatScreen extends ConsumerStatefulWidget {
@@ -37,11 +46,44 @@ class GroupChatScreen extends ConsumerStatefulWidget {
 class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
   final _controller = TextEditingController();
   bool _sending = false;
+  DateTime? _lastSeenUtc;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.listen<AsyncValue<List<GroupMessage>>>(
+      groupMessagesProvider(widget.groupId),
+      (previous, next) {
+        final session = ref.read(sessionProvider);
+        final messages = next.asData?.value;
+        if (session == null || messages == null || messages.isEmpty) return;
+        final latestUtc = messages.first.createdAt.toUtc();
+        if (_lastSeenUtc != null && !latestUtc.isAfter(_lastSeenUtc!)) return;
+        _lastSeenUtc = latestUtc;
+        unawaited(_markSeen(
+          userId: session.user.id,
+          seenAt: latestUtc,
+        ));
+      },
+    );
+  }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _markSeen({
+    required String userId,
+    required DateTime seenAt,
+  }) async {
+    await LocalCacheService.instance.setGroupChatLastSeen(
+      userId: userId,
+      groupId: widget.groupId,
+      seenAt: seenAt,
+    );
+    ref.invalidate(groupChatLastSeenProvider(widget.groupId));
   }
 
   Future<void> _send() async {
@@ -88,14 +130,18 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
         false;
 
     return Scaffold(
-      backgroundColor: _ChatColors.bgTop,
+      backgroundColor: _ChatColors.bgTop(context),
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.white,
         title: groupAsync.maybeWhen(
-          data: (group) => Text(group?.title ?? 'Group chat'),
+          data: (group) => Text(
+            group?.title ?? 'Group chat',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           orElse: () => const Text('Group chat'),
         ),
       ),
@@ -103,13 +149,13 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
         children: <Widget>[
           Positioned.fill(
             child: DecoratedBox(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: <Color>[
-                    _ChatColors.bgTop,
-                    _ChatColors.bgBottom,
+                    _ChatColors.bgTop(context),
+                    _ChatColors.bgBottom(context),
                   ],
                 ),
               ),
@@ -122,7 +168,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                 child: _InfoCard(
                   child: Row(
                     children: <Widget>[
-                      const Icon(Icons.shield_outlined, color: _ChatColors.muted),
+                      Icon(Icons.shield_outlined, color: _ChatColors.muted(context)),
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
@@ -136,7 +182,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                       Text(
                         isJoined ? 'Member' : 'Join to chat',
                         style: const TextStyle(
-                          color: _ChatColors.muted,
+                          color: _ChatColors.muted(context),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -148,10 +194,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                 child: messagesAsync.when(
                   data: (messages) {
                     if (messages.isEmpty) {
-                      return const Center(
+                      return Center(
                         child: Text(
                           'No messages yet.',
-                          style: TextStyle(color: _ChatColors.muted),
+                          style: TextStyle(color: _ChatColors.muted(context)),
                         ),
                       );
                     }
@@ -176,7 +222,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                       padding: const EdgeInsets.all(24),
                       child: Text(
                         _friendlyError(error),
-                        style: const TextStyle(color: _ChatColors.muted),
+                        style: TextStyle(color: _ChatColors.muted(context)(context)),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -190,7 +236,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                     padding: EdgeInsets.all(16),
                     child: Text(
                       'Sign in to send messages.',
-                      style: TextStyle(color: _ChatColors.muted),
+                      style: TextStyle(color: _ChatColors.muted(context)),
                     ),
                   ),
                 )
@@ -204,7 +250,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                       width: double.infinity,
                       child: FilledButton(
                         style: FilledButton.styleFrom(
-                          backgroundColor: _ChatColors.accent,
+                          backgroundColor: _ChatColors.accent(context),
                           foregroundColor: Colors.black,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -242,10 +288,9 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                             style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               hintText: 'Message…',
-                              hintStyle:
-                                  const TextStyle(color: _ChatColors.muted),
+                              hintStyle: TextStyle(color: _ChatColors.muted(context)),
                               filled: true,
-                              fillColor: _ChatColors.field,
+                              fillColor: _ChatColors.field(context),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(18),
                                 borderSide: BorderSide.none,
@@ -265,7 +310,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
                             width: 48,
                             height: 48,
                             decoration: BoxDecoration(
-                              color: _ChatColors.accent,
+                              color: _ChatColors.accent(context),
                               borderRadius: BorderRadius.circular(18),
                             ),
                             child: Center(
@@ -321,9 +366,9 @@ class _InfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _ChatColors.card,
+        color: _ChatColors.card(context),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _ChatColors.cardBorder),
+        border: Border.all(color: _ChatColors.card(context)Border),
       ),
       child: child,
     );
@@ -364,7 +409,7 @@ class _Bubble extends StatelessWidget {
               border: Border.all(
                 color: mine
                     ? Colors.black.withValues(alpha: 0.10)
-                    : _ChatColors.cardBorder,
+                    : _ChatColors.card(context)Border,
               ),
             ),
             child: Padding(
@@ -377,7 +422,7 @@ class _Bubble extends StatelessWidget {
                     Text(
                       alias,
                       style: const TextStyle(
-                        color: _ChatColors.muted,
+                        color: _ChatColors.muted(context),
                         fontWeight: FontWeight.w800,
                         fontSize: 12,
                       ),
@@ -397,7 +442,7 @@ class _Bubble extends StatelessWidget {
                     style: TextStyle(
                       color: mine
                           ? Colors.black.withValues(alpha: 0.55)
-                          : _ChatColors.muted,
+                          : _ChatColors.muted(context),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),

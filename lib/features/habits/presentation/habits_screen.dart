@@ -38,7 +38,9 @@ class HabitsScreen extends ConsumerWidget {
                   trailing: selectedHabitId == habit.id
                       ? const Icon(Icons.check_circle)
                       : const Icon(Icons.circle_outlined),
-                  onTap: () => ref.read(selectedHabitIdProvider.notifier).state = habit.id,
+                  onTap: () => ref
+                      .read(selectedHabitIdProvider.notifier)
+                      .state = habit.id,
                 ),
               );
             },
@@ -58,7 +60,8 @@ class HabitsScreen extends ConsumerWidget {
             lockedDescription: 'Upgrade to add more habits.',
             child: PrimaryButton(
               label: 'Add Habit',
-              onPressed: () => _showAddHabitDialog(context, ref, isPremium),
+              onPressed: () =>
+                  _showAddHabitDialog(context, ref, isPremium.isPremium),
             ),
           ),
         ),
@@ -115,7 +118,8 @@ class HabitsScreen extends ConsumerWidget {
                 TextField(
                   controller: timeController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Minutes spent daily'),
+                  decoration:
+                      const InputDecoration(labelText: 'Minutes spent daily'),
                 ),
               ],
             ),

@@ -19,7 +19,7 @@ class JournalScreen extends ConsumerWidget {
     final habitsAsync = ref.watch(habitsProvider);
     final selectedHabitId = ref.watch(selectedHabitIdProvider);
     final isPremium = ref.watch(premiumControllerProvider);
-    final promptsAsync = ref.watch(promptsProvider(isPremium));
+    final promptsAsync = ref.watch(promptsProvider(isPremium.isPremium));
 
     final habits = habitsAsync.maybeWhen(
       data: (items) => items,
@@ -45,7 +45,8 @@ class JournalScreen extends ConsumerWidget {
                         .toList(),
                     onChanged: (value) {
                       if (value != null) {
-                        ref.read(selectedHabitIdProvider.notifier).state = value;
+                        ref.read(selectedHabitIdProvider.notifier).state =
+                            value;
                       }
                     },
                   ),
