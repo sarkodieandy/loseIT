@@ -75,35 +75,10 @@ class GroupMembersScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final controller = TextEditingController();
-          String? userId;
-          try {
-            userId = await showDialog<String?>(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('Add member'),
-                content: TextField(
-                  controller: controller,
-                  decoration: const InputDecoration(
-                    hintText: 'Paste user ID (UUID)',
-                  ),
-                  autofocus: true,
-                ),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: () => context.pop(null),
-                    child: const Text('Cancel'),
-                  ),
-                  FilledButton(
-                    onPressed: () => context.pop(controller.text.trim()),
-                    child: const Text('Add'),
-                  ),
-                ],
-              ),
-            );
-          } finally {
-            controller.dispose();
-          }
+          final userId = await showDialog<String?>(
+            context: context,
+            builder: (context) => const _AddMemberDialog(),
+          );
 
           final trimmed = userId?.trim();
           if (trimmed == null || trimmed.isEmpty) return;
@@ -300,6 +275,60 @@ class GroupMembersScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AddMemberDialog extends StatefulWidget {
+  const _AddMemberDialog();
+
+  @override
+  State<_AddMemberDialog> createState() => _AddMemberDialogState();
+}
+
+class _AddMemberDialogState extends State<_AddMemberDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    context.pop(value.isEmpty ? null : value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add member'),
+      content: TextField(
+        controller: _controller,
+        decoration: const InputDecoration(
+          hintText: 'Paste user ID (UUID)',
+        ),
+        autofocus: true,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => context.pop(null),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('Add'),
+        ),
+      ],
     );
   }
 }

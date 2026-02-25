@@ -262,7 +262,7 @@ class DashboardScreen extends ConsumerWidget {
                                           .length;
                                       return acc + count;
                                     }) /
-                                    days)
+                                    math.max(days, 1))
                                 .ceil()
                             : 1,
                         recentTriggers: journalEntries.length > 0

@@ -197,6 +197,8 @@ alter table public.community_replies
 create or replace function public.community_replies_inc_count()
 returns trigger
 language plpgsql
+security definer
+set search_path = public
 as $$
 begin
   update public.community_posts
@@ -209,6 +211,8 @@ $$;
 create or replace function public.community_replies_dec_count()
 returns trigger
 language plpgsql
+security definer
+set search_path = public
 as $$
 begin
   update public.community_posts
@@ -471,6 +475,8 @@ where c.id = u.challenge_id;
 create or replace function public.user_challenges_inc_count()
 returns trigger
 language plpgsql
+security definer
+set search_path = public
 as $$
 begin
   update public.challenges
@@ -483,6 +489,8 @@ $$;
 create or replace function public.user_challenges_dec_count()
 returns trigger
 language plpgsql
+security definer
+set search_path = public
 as $$
 begin
   update public.challenges

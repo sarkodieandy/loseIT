@@ -348,28 +348,6 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                       onPressed: _purchasing
                           ? null
                           : () => _openLink(
-                                AppLinks.termsOfUse,
-                                missingMessage:
-                                    'Missing TERMS_OF_USE_URL in .env',
-                              ),
-                      child: const Text('Terms'),
-                    ),
-                    Text('·', style: separatorStyle),
-                    TextButton(
-                      onPressed: _purchasing
-                          ? null
-                          : () => _openLink(
-                                AppLinks.privacyPolicy,
-                                missingMessage:
-                                    'Missing PRIVACY_POLICY_URL in .env',
-                              ),
-                      child: const Text('Privacy'),
-                    ),
-                    Text('·', style: separatorStyle),
-                    TextButton(
-                      onPressed: _purchasing
-                          ? null
-                          : () => _openLink(
                                 AppLinks.appleStandardEula,
                                 missingMessage: 'Unable to open EULA.',
                               ),
