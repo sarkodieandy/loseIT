@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -67,8 +70,6 @@ class DashboardScreen extends ConsumerWidget {
         final duration = now.difference(habitStart);
         final safeDuration = duration.isNegative ? Duration.zero : duration;
         final days = safeDuration.inDays;
-        final hours = safeDuration.inHours.remainder(24);
-        final minutes = safeDuration.inMinutes.remainder(60);
 
         final moneySaved = dailySpend * (safeDuration.inHours / 24);
         final timeSavedHours = (dailyMinutes * days) / 60.0;
@@ -230,41 +231,7 @@ class DashboardScreen extends ConsumerWidget {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            AnimatedSwitcher(
-                              duration: AppMotion.slow,
-                              switchInCurve: AppMotion.emphasized,
-                              switchOutCurve: AppMotion.exit,
-                              transitionBuilder: (child, animation) {
-                                final curved = CurvedAnimation(
-                                  parent: animation,
-                                  curve: AppMotion.emphasized,
-                                );
-                                return FadeTransition(
-                                  opacity: curved,
-                                  child: SlideTransition(
-                                    position: Tween<Offset>(
-                                      begin: const Offset(0, 0.12),
-                                      end: Offset.zero,
-                                    ).animate(curved),
-                                    child: ScaleTransition(
-                                      scale: Tween<double>(begin: 0.98, end: 1)
-                                          .animate(curved),
-                                      child: child,
-                                    ),
-                                  ),
-                                );
-                              },
-                              child: Text(
-                                '${days}d ${hours}h ${minutes}m',
-                                key: ValueKey('${days}_${hours}_${minutes}'),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .displaySmall
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                              ),
-                            ),
+                            _SoberFlipTimer(start: habitStart),
                             const SizedBox(height: 6),
                             Text('Since ${Formatters.date.format(habitStart)}'),
                             const SizedBox(height: 16),
@@ -832,6 +799,248 @@ class _SmoothLinearProgressIndicatorState
           color: widget.color,
           backgroundColor: widget.backgroundColor,
         ),
+      ),
+    );
+  }
+}
+
+class _SoberFlipTimer extends StatefulWidget {
+  const _SoberFlipTimer({
+    required this.start,
+  });
+
+  final DateTime start;
+
+  @override
+  State<_SoberFlipTimer> createState() => _SoberFlipTimerState();
+}
+
+class _SoberFlipTimerState extends State<_SoberFlipTimer> {
+  Timer? _timer;
+  _TimeParts _parts = const _TimeParts(days: 0, hours: 0, minutes: 0, seconds: 0);
+
+  @override
+  void initState() {
+    super.initState();
+    _parts = _computeParts();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+  }
+
+  @override
+  void didUpdateWidget(covariant _SoberFlipTimer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.start != widget.start) {
+      _parts = _computeParts();
+    }
+  }
+
+  void _tick() {
+    final next = _computeParts();
+    if (next == _parts) return;
+    if (!mounted) return;
+    setState(() => _parts = next);
+  }
+
+  _TimeParts _computeParts() {
+    final now = DateTime.now();
+    final duration = now.difference(widget.start);
+    final safeDuration = duration.isNegative ? Duration.zero : duration;
+
+    final days = safeDuration.inDays;
+    final hours = safeDuration.inHours.remainder(24);
+    final minutes = safeDuration.inMinutes.remainder(60);
+    final seconds = safeDuration.inSeconds.remainder(60);
+
+    return _TimeParts(days: days, hours: hours, minutes: minutes, seconds: seconds);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final valueStyle = Theme.of(context).textTheme.headlineLarge?.copyWith(
+          fontWeight: FontWeight.w900,
+          height: 1.0,
+          letterSpacing: 0.5,
+        );
+    final labelStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.6,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        );
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: <Widget>[
+        _FlipUnitTile(
+          value: _parts.days.toString(),
+          label: 'DAYS',
+          minWidth: 88,
+          valueStyle: valueStyle,
+          labelStyle: labelStyle,
+        ),
+        _FlipUnitTile(
+          value: _parts.hours.toString().padLeft(2, '0'),
+          label: 'HRS',
+          minWidth: 66,
+          valueStyle: valueStyle,
+          labelStyle: labelStyle,
+        ),
+        _FlipUnitTile(
+          value: _parts.minutes.toString().padLeft(2, '0'),
+          label: 'MIN',
+          minWidth: 66,
+          valueStyle: valueStyle,
+          labelStyle: labelStyle,
+        ),
+        _FlipUnitTile(
+          value: _parts.seconds.toString().padLeft(2, '0'),
+          label: 'SEC',
+          minWidth: 66,
+          valueStyle: valueStyle,
+          labelStyle: labelStyle,
+        ),
+      ],
+    );
+  }
+}
+
+class _TimeParts {
+  const _TimeParts({
+    required this.days,
+    required this.hours,
+    required this.minutes,
+    required this.seconds,
+  });
+
+  final int days;
+  final int hours;
+  final int minutes;
+  final int seconds;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _TimeParts &&
+        other.days == days &&
+        other.hours == hours &&
+        other.minutes == minutes &&
+        other.seconds == seconds;
+  }
+
+  @override
+  int get hashCode => Object.hash(days, hours, minutes, seconds);
+}
+
+class _FlipUnitTile extends StatelessWidget {
+  const _FlipUnitTile({
+    required this.value,
+    required this.label,
+    required this.minWidth,
+    required this.valueStyle,
+    required this.labelStyle,
+  });
+
+  final String value;
+  final String label;
+  final double minWidth;
+  final TextStyle? valueStyle;
+  final TextStyle? labelStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final tileColor = Theme.of(context).colorScheme.surfaceContainerHighest;
+    final borderColor =
+        Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.28);
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: minWidth),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+        decoration: BoxDecoration(
+          color: tileColor.withValues(alpha: isDark ? 0.42 : 0.70),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: borderColor),
+          boxShadow: isDark
+              ? null
+              : <BoxShadow>[
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 14,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            _FlipText(
+              value: value,
+              style: valueStyle,
+            ),
+            const SizedBox(height: 4),
+            Text(label, style: labelStyle),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FlipText extends StatelessWidget {
+  const _FlipText({
+    required this.value,
+    this.style,
+  });
+
+  final String value;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: AppMotion.slower,
+      switchInCurve: AppMotion.emphasized,
+      switchOutCurve: AppMotion.exit,
+      transitionBuilder: (child, animation) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: AppMotion.emphasized,
+          reverseCurve: AppMotion.exit,
+        );
+        final isIncoming = child.key == ValueKey<String>(value);
+
+        return AnimatedBuilder(
+          animation: curved,
+          builder: (context, _) {
+            final t = curved.value;
+            final tilt =
+                (1 - t) * (isIncoming ? math.pi / 2 : -math.pi / 2);
+            final transform = Matrix4.identity()
+              ..setEntry(3, 2, 0.0022)
+              ..rotateX(tilt);
+
+            return Opacity(
+              opacity: t.clamp(0.0, 1.0),
+              child: Transform(
+                alignment: Alignment.center,
+                transform: transform,
+                child: child,
+              ),
+            );
+          },
+        );
+      },
+      child: Text(
+        value,
+        key: ValueKey<String>(value),
+        style: style,
+        textAlign: TextAlign.center,
       ),
     );
   }

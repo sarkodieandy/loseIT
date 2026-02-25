@@ -31,8 +31,8 @@ class PremiumController extends StateNotifier<PremiumStatus> {
     _init();
   }
 
-  /// Trial duration (3 days) starting from account creation.
-  static const Duration trialDuration = Duration(days: 3);
+  /// Trial duration (7 days) starting from account creation.
+  static const Duration trialDuration = Duration(days: 7);
 
   final RevenueCatService _service;
   final SupabaseClient _client;

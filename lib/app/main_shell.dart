@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/utils/app_motion.dart';
+
 class MainShell extends StatelessWidget {
   const MainShell({
     super.key,
@@ -21,6 +23,7 @@ class MainShell extends StatelessWidget {
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
+        animationDuration: AppMotion.slower,
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: _onDestinationSelected,
         destinations: const <NavigationDestination>[

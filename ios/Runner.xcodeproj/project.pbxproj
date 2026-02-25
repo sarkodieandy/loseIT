@@ -206,6 +206,7 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				AD69899C1F4D8344497F7F91 /* [CP] Embed Pods Frameworks */,
+				F3D6A9B2C1E4F50718293A4B /* Re-sign Embedded Frameworks */,
 			);
 			buildRules = (
 			);
@@ -373,6 +374,21 @@
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
+		};
+		F3D6A9B2C1E4F50718293A4B /* Re-sign Embedded Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Re-sign Embedded Frameworks";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\nif [ \"${CODE_SIGNING_ALLOWED}\" != \"YES\" ]; then\n  echo \"Code signing not allowed; skipping re-sign.\"\n  exit 0\nfi\n\nif [ -z \"${EXPANDED_CODE_SIGN_IDENTITY}\" ]; then\n  echo \"No signing identity; skipping re-sign.\"\n  exit 0\nfi\n\nFRAMEWORKS_DIR=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nif [ ! -d \"${FRAMEWORKS_DIR}\" ]; then\n  echo \"No frameworks directory at ${FRAMEWORKS_DIR}\"\n  exit 0\nfi\n\necho \"Re-signing embedded frameworks in ${FRAMEWORKS_DIR}\"\nfind \"${FRAMEWORKS_DIR}\" -maxdepth 1 -type d -name \"*.framework\" -print0 | while IFS= read -r -d '' framework; do\n  echo \"Signing ${framework}\"\n  /usr/bin/codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --preserve-metadata=identifier,entitlements --timestamp=none \"${framework}\"\ndone\n\nfind \"${FRAMEWORKS_DIR}\" -maxdepth 1 -type f -name \"*.dylib\" -print0 | while IFS= read -r -d '' dylib; do\n  echo \"Signing ${dylib}\"\n  /usr/bin/codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp=none \"${dylib}\"\ndone\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

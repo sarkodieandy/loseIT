@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/services/notification_service.dart';
+import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/app_motion.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/animated_reveal.dart';
@@ -44,6 +48,39 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   _TribeTopTab _tab = _TribeTopTab.feed;
   _TribeFilter _filter = _TribeFilter.all;
   bool _showFab = true;
+  final Set<String> _likingPostIds = <String>{};
+
+  String _friendlyLikeError(Object error) {
+    final message = error.toString();
+    if (message.contains('community_like_post') || message.contains('42883')) {
+      return 'Likes backend isn’t installed yet. Run `supabase/schema.sql` in Supabase SQL Editor.';
+    }
+    if (message.contains('row-level security') ||
+        message.contains('permission denied') ||
+        message.contains('violates')) {
+      return 'Likes are blocked by backend permissions. Apply the latest `supabase/schema.sql`.';
+    }
+    return 'Unable to like post. Please try again.';
+  }
+
+  Future<void> _likePost(CommunityPost post) async {
+    if (_likingPostIds.contains(post.id)) return;
+    setState(() => _likingPostIds.add(post.id));
+    try {
+      await ref.read(communityRepositoryProvider).likePost(post.id, post.likes);
+      HapticFeedback.selectionClick();
+    } catch (error, stackTrace) {
+      AppLogger.error('community.likeTap', error, stackTrace);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_friendlyLikeError(error))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _likingPostIds.remove(post.id));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -307,11 +344,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                     post: post,
                     isSelf: session?.user.id == post.userId,
                     onOpenThread: () => context.push('/community/${post.id}'),
-                    onLike: () async {
-                      await ref
-                          .read(communityRepositoryProvider)
-                          .likePost(post.id, post.likes);
-                    },
+                    onLike: () => unawaited(_likePost(post)),
                     onSendSupport: () {
                       if (session?.user.id == post.userId) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -516,6 +549,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                           .startChallenge(challenge.id);
                       ref.invalidate(userChallengesProvider);
                       ref.invalidate(challengesProvider);
+                      await NotificationService()
+                          .refreshGroupChatSubscriptions();
                     },
                   ),
                 );
@@ -1572,7 +1607,8 @@ class _TribeGroupCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: <Color>[
-              TribeColors.accent(context).withValues(alpha: isDark ? 0.12 : 0.10),
+              TribeColors.accent(context)
+                  .withValues(alpha: isDark ? 0.12 : 0.10),
               TribeColors.card(context),
             ],
           ),

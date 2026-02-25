@@ -127,12 +127,14 @@ class RevenueCatService {
     return trialEndsAt.difference(now).inDays + 1;
   }
 
-  /// Start 3-day trial
+  /// Start trial (legacy).
+  ///
+  /// Trial access is granted automatically based on account creation time
+  /// (see `PremiumController`) and is stored securely in the backend.
   Future<bool> startTrial() async {
     if (!_configured) return false;
     try {
-      AppLogger.info('revenuecat: starting 3-day trial');
-      // Trial is tracked in Supabase profiles table
+      AppLogger.info('revenuecat: startTrial() called (no-op)');
       return true;
     } catch (error, stackTrace) {
       AppLogger.error('revenuecat.startTrial', error, stackTrace);

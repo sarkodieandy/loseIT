@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/notification_service.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/premium_gate.dart';
 import '../../../providers/app_providers.dart';
@@ -57,6 +58,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
           );
       ref.invalidate(challengesProvider);
       ref.invalidate(userChallengesProvider);
+      await NotificationService().refreshGroupChatSubscriptions();
       if (!mounted) return;
       context.pop();
     } catch (error, stackTrace) {

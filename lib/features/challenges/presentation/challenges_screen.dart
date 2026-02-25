@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/notification_service.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/repository_providers.dart';
@@ -53,7 +54,9 @@ class ChallengesScreen extends ConsumerWidget {
                                   Expanded(
                                     child: Text(
                                       challenge.title,
-                                      style: Theme.of(context).textTheme.titleMedium,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
                                     ),
                                   ),
                                   OutlinedButton(
@@ -61,10 +64,14 @@ class ChallengesScreen extends ConsumerWidget {
                                         ? null
                                         : () async {
                                             await ref
-                                                .read(challengesRepositoryProvider)
+                                                .read(
+                                                    challengesRepositoryProvider)
                                                 .startChallenge(challenge.id);
-                                            ref.invalidate(userChallengesProvider);
+                                            ref.invalidate(
+                                                userChallengesProvider);
                                             ref.invalidate(challengesProvider);
+                                            await NotificationService()
+                                                .refreshGroupChatSubscriptions();
                                           },
                                     child: Text(joined ? 'Joined' : 'Join'),
                                   ),

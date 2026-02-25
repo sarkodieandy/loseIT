@@ -21,6 +21,7 @@ import '../data/models/support_connection.dart';
 import '../data/models/support_message.dart';
 import '../data/models/custom_milestone.dart';
 import '../data/models/journal_entry.dart';
+import '../data/models/recovery_plan.dart';
 import '../data/models/relapse_log.dart';
 import '../data/models/urge_log.dart';
 import '../data/models/user_profile.dart';
@@ -185,6 +186,12 @@ final groupProvider = FutureProvider.family<Challenge?, String>((ref, groupId) {
   return repository.fetchGroup(groupId);
 });
 
+final groupMembersProvider =
+    FutureProvider.family<List<UserChallenge>, String>((ref, groupId) {
+  final repository = ref.watch(challengesRepositoryProvider);
+  return repository.fetchGroupMembers(groupId);
+});
+
 final groupCheckinsProvider =
     StreamProvider.family<List<GroupCheckin>, String>((ref, groupId) {
   final repository = ref.watch(challengesRepositoryProvider);
@@ -262,6 +269,11 @@ final supportConnectionsProvider =
     FutureProvider<List<SupportConnection>>((ref) {
   final repository = ref.watch(supportRepositoryProvider);
   return repository.fetchConnections();
+});
+
+final recoveryPlanProvider = FutureProvider<RecoveryPlan?>((ref) {
+  final repository = ref.watch(recoveryPlanRepositoryProvider);
+  return repository.fetchPlan();
 });
 
 final supportMessagesProvider =

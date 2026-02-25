@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/constants/app_links.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../data/services/revenuecat_service.dart';
 import '../../../providers/app_providers.dart';
@@ -119,6 +121,37 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     }
   }
 
+  Future<void> _openLink(
+    Uri? uri, {
+    required String missingMessage,
+  }) async {
+    if (uri == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(missingMessage)),
+      );
+      return;
+    }
+
+    try {
+      final ok = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to open link.')),
+        );
+      }
+    } catch (error, stackTrace) {
+      AppLogger.error('paywall.openLink', error, stackTrace);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open link.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final status = ref.watch(premiumControllerProvider);
@@ -126,6 +159,10 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 
     final offering = _offerings?.current;
     final packages = offering?.availablePackages ?? const <Package>[];
+    final separatorStyle = Theme.of(context)
+        .textTheme
+        .bodySmall
+        ?.copyWith(fontWeight: FontWeight.w700);
 
     return Scaffold(
       appBar: AppBar(
@@ -143,17 +180,6 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                 },
           icon: const Icon(Icons.close),
         ),
-        actions: <Widget>[
-          IconButton(
-            tooltip: 'Refresh offerings',
-            onPressed: _purchasing ? null : () => _load(showSnack: true),
-            icon: const Icon(Icons.refresh),
-          ),
-          TextButton(
-            onPressed: _purchasing ? null : _restore,
-            child: const Text('Restore'),
-          ),
-        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -243,7 +269,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                         )
                       else
                         Text(
-                          'Your 3‑day trial has ended.',
+                          'Your 7‑day trial has ended.',
                           style: Theme.of(context)
                               .textTheme
                               .labelLarge
@@ -274,7 +300,16 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                     message:
                         'Add REVENUECAT_IOS_API_KEY to .env, then run again.',
                   )
-                else if (packages.isEmpty) ...[
+                else if (_offerings == null) ...[
+                  _WarningCard(
+                    title: 'Unable to load products',
+                    message: 'Please check your connection and try again.',
+                    trailing: TextButton(
+                      onPressed: _purchasing ? null : () => _load(),
+                      child: const Text('Retry'),
+                    ),
+                  ),
+                ] else if (packages.isEmpty) ...[
                   const _WarningCard(
                     title: 'No products found',
                     message:
@@ -290,9 +325,57 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 
                 const SizedBox(height: 18),
                 Text(
-                  'Cancel anytime in App Store settings.',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  'Payment will be charged to your Apple ID at confirmation of purchase.\n'
+                  'Subscriptions renew automatically unless canceled at least 24 hours before the end of the current period.\n'
+                  'Manage or cancel in App Store settings.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        height: 1.35,
+                      ),
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 6,
+                  runSpacing: 2,
+                  children: <Widget>[
+                    TextButton(
+                      onPressed: _purchasing ? null : _restore,
+                      child: const Text('Restore'),
+                    ),
+                    Text('·', style: separatorStyle),
+                    TextButton(
+                      onPressed: _purchasing
+                          ? null
+                          : () => _openLink(
+                                AppLinks.termsOfUse,
+                                missingMessage:
+                                    'Missing TERMS_OF_USE_URL in .env',
+                              ),
+                      child: const Text('Terms'),
+                    ),
+                    Text('·', style: separatorStyle),
+                    TextButton(
+                      onPressed: _purchasing
+                          ? null
+                          : () => _openLink(
+                                AppLinks.privacyPolicy,
+                                missingMessage:
+                                    'Missing PRIVACY_POLICY_URL in .env',
+                              ),
+                      child: const Text('Privacy'),
+                    ),
+                    Text('·', style: separatorStyle),
+                    TextButton(
+                      onPressed: _purchasing
+                          ? null
+                          : () => _openLink(
+                                AppLinks.appleStandardEula,
+                                missingMessage: 'Unable to open EULA.',
+                              ),
+                      child: const Text('EULA'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -334,10 +417,12 @@ class _WarningCard extends StatelessWidget {
   const _WarningCard({
     required this.title,
     required this.message,
+    this.trailing,
   });
 
   final String title;
   final String message;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -353,11 +438,18 @@ class _WarningCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                 ),
+              ),
+              if (trailing != null) trailing!,
+            ],
           ),
           const SizedBox(height: 6),
           Text(message),

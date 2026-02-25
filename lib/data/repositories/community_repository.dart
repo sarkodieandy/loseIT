@@ -270,6 +270,31 @@ class CommunityRepository {
 
   Future<void> likePost(String id, int currentLikes) async {
     try {
+      // Preferred: atomic increment via RPC (works with strict RLS).
+      await _client.rpc(
+        'community_like_post',
+        params: <String, dynamic>{'post_id': id},
+      );
+      return;
+    } on PostgrestException catch (error, stackTrace) {
+      // Backward compatibility: RPC may not exist yet.
+      // 42883 = undefined_function
+      if (error.code == '42883') {
+        AppLogger.warn(
+          'community.likePost: RPC missing (community_like_post). Falling back to direct update.',
+        );
+      } else {
+        AppLogger.error('community.likePost', error, stackTrace);
+        rethrow;
+      }
+    } catch (error, stackTrace) {
+      AppLogger.error('community.likePost', error, stackTrace);
+      rethrow;
+    }
+
+    // Fallback (legacy): direct update. Note this will fail under strict RLS for
+    // non-owners, but keeps older deployments working when RLS isn't enabled.
+    try {
       final parsedId = int.tryParse(id);
       await _client
           .from('community_posts')

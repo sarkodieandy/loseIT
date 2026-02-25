@@ -1,4 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:io';
+import 'dart:typed_data';
 
 import '../../core/utils/app_logger.dart';
 import '../models/challenge.dart';
@@ -218,6 +220,78 @@ class ChallengesRepository {
     }
   }
 
+  Future<List<UserChallenge>> fetchGroupMembers(String groupId) async {
+    if (_client.auth.currentUser == null) {
+      throw const AuthException('Not authenticated');
+    }
+    try {
+      final rows = await _client
+          .from('user_challenges')
+          .select()
+          .eq('challenge_id', groupId)
+          .order('started_at', ascending: true) as List<dynamic>;
+      return rows
+          .map((row) =>
+              UserChallenge.fromJson(Map<String, dynamic>.from(row as Map)))
+          .toList(growable: false);
+    } on PostgrestException catch (error, stackTrace) {
+      AppLogger.error('groups.members.fetch', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('groups.members.fetch', error, stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<UserChallenge> addGroupMember({
+    required String groupId,
+    required String userId,
+  }) async {
+    if (_client.auth.currentUser == null) {
+      throw const AuthException('Not authenticated');
+    }
+    final payload = <String, dynamic>{
+      'user_id': userId,
+      'challenge_id': groupId,
+      'progress': 0,
+      'completed': false,
+      'role': 'member',
+    };
+    try {
+      final row =
+          await _client.from('user_challenges').insert(payload).select().single();
+      return UserChallenge.fromJson(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error, stackTrace) {
+      AppLogger.error('groups.members.add', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('groups.members.add', error, stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<void> removeGroupMember({
+    required String groupId,
+    required String userId,
+  }) async {
+    if (_client.auth.currentUser == null) {
+      throw const AuthException('Not authenticated');
+    }
+    try {
+      await _client
+          .from('user_challenges')
+          .delete()
+          .eq('challenge_id', groupId)
+          .eq('user_id', userId);
+    } on PostgrestException catch (error, stackTrace) {
+      AppLogger.error('groups.members.remove', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('groups.members.remove', error, stackTrace);
+      rethrow;
+    }
+  }
+
   Stream<List<GroupCheckin>> streamGroupCheckins(String groupId) {
     return _client
         .from('group_checkins')
@@ -308,6 +382,90 @@ class ChallengesRepository {
       rethrow;
     } catch (error, stackTrace) {
       AppLogger.error('groups.sendMessage', error, stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<GroupMessage> sendGroupFileMessage({
+    required String groupId,
+    required String messageId,
+    required File file,
+    required String fileName,
+    String? mimeType,
+    int? sizeBytes,
+    String? caption,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw const AuthException('Not authenticated');
+
+    final normalizedName = fileName.replaceAll(RegExp(r'[\\\\/]+'), '_').trim();
+    final safeName = normalizedName.isEmpty ? 'attachment' : normalizedName;
+    final bucket = 'group-attachments';
+    final path = '$groupId/${user.id}/$messageId/$safeName';
+
+    final trimmedCaption = caption?.trim();
+    final content = (trimmedCaption != null && trimmedCaption.isNotEmpty)
+        ? trimmedCaption
+        : safeName;
+
+    AppLogger.info(
+      'GroupChat sendFile groupId=$groupId userId=${user.id} file=$safeName size=${sizeBytes ?? file.lengthSync()}',
+    );
+
+    try {
+      await _client.storage.from(bucket).upload(
+            path,
+            file,
+            fileOptions: FileOptions(
+              contentType: mimeType,
+            ),
+          );
+
+      final payload = <String, dynamic>{
+        'id': messageId,
+        'group_id': groupId,
+        'sender_id': user.id,
+        'message_type': 'file',
+        'content': content,
+        'attachment_path': path,
+        'attachment_name': safeName,
+        'attachment_mime': mimeType,
+        'attachment_size': sizeBytes ?? file.lengthSync(),
+      };
+
+      final row =
+          await _client.from('group_messages').insert(payload).select().single();
+      AppLogger.info('GroupChat sendFile success id=${row['id']}');
+      return GroupMessage.fromJson(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error, stackTrace) {
+      AppLogger.error('groups.sendFileMessage', error, stackTrace);
+      // Best-effort cleanup so we don't leak orphaned uploads.
+      try {
+        await _client.storage.from(bucket).remove(<String>[path]);
+      } catch (_) {}
+      rethrow;
+    } on StorageException catch (error, stackTrace) {
+      AppLogger.error('groups.sendFileMessage.storage', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('groups.sendFileMessage', error, stackTrace);
+      // Best-effort cleanup so we don't leak orphaned uploads.
+      try {
+        await _client.storage.from(bucket).remove(<String>[path]);
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  Future<Uint8List> downloadGroupAttachment(String attachmentPath) async {
+    const bucket = 'group-attachments';
+    try {
+      return await _client.storage.from(bucket).download(attachmentPath);
+    } on StorageException catch (error, stackTrace) {
+      AppLogger.error('groups.downloadAttachment', error, stackTrace);
+      rethrow;
+    } catch (error, stackTrace) {
+      AppLogger.error('groups.downloadAttachment', error, stackTrace);
       rethrow;
     }
   }

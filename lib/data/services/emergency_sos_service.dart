@@ -36,6 +36,26 @@ class EmergencySosService {
         _sessionController.add(session);
       }
 
+      // Best-effort persist start to Supabase backend.
+      try {
+        final client = Supabase.instance.client;
+        final user = client.auth.currentUser;
+        if (user != null) {
+          await client.from('emergency_sessions').insert({
+            'user_id': user.id,
+            'session_id': sessionId,
+            'technique': technique,
+            'duration_seconds': 0,
+            'completed': false,
+            'contacted_support': false,
+            'notes': null,
+            'created_at': DateTime.now().toIso8601String(),
+          });
+        }
+      } catch (e) {
+        AppLogger.error('emergency.startSOS.persist', e, null);
+      }
+
       return session;
     } catch (error, stackTrace) {
       AppLogger.error('emergency.startSOS', error, stackTrace);
@@ -46,6 +66,7 @@ class EmergencySosService {
   /// Complete emergency session
   Future<void> completeSession({
     required String sessionId,
+    required String technique,
     required int durationSeconds,
     required bool contactedSupport,
     String? notes,
@@ -54,7 +75,7 @@ class EmergencySosService {
       final session = EmergencySession(
         id: sessionId,
         createdAt: DateTime.now(),
-        type: 'session_complete',
+        type: technique,
         durationSeconds: durationSeconds,
         completed: true,
         contactedSupport: contactedSupport,
@@ -74,17 +95,16 @@ class EmergencySosService {
         final client = Supabase.instance.client;
         final user = client.auth.currentUser;
         if (user != null) {
-          await client
-              .from('emergency_sessions')
-              .update({
-                'duration_seconds': durationSeconds,
-                'contacted_support': contactedSupport,
-                'notes': notes,
-                'completed': true,
-                'completed_at': DateTime.now().toIso8601String(),
-              })
-              .eq('user_id', user.id)
-              .eq('session_id', sessionId);
+          await client.from('emergency_sessions').upsert({
+            'user_id': user.id,
+            'session_id': sessionId,
+            'technique': technique,
+            'duration_seconds': durationSeconds,
+            'contacted_support': contactedSupport,
+            'notes': notes,
+            'completed': true,
+            'completed_at': DateTime.now().toIso8601String(),
+          }, onConflict: 'user_id,session_id');
         }
       } catch (e) {
         AppLogger.error('emergency: failed to persist session', e, null);

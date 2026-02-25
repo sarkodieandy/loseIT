@@ -329,6 +329,7 @@ create table if not exists public.user_challenges (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
   challenge_id uuid not null references public.challenges (id) on delete cascade,
+  role text not null default 'member',
   progress integer not null default 0,
   completed boolean not null default false,
   started_at timestamptz not null default now(),
@@ -338,6 +339,74 @@ create table if not exists public.user_challenges (
 -- Prevent duplicates so member counts stay correct.
 create unique index if not exists idx_user_challenges_unique
   on public.user_challenges (user_id, challenge_id);
+
+-- Backwards compatible: add role if membership table already exists.
+alter table public.user_challenges
+  add column if not exists role text not null default 'member';
+
+create or replace function public.is_group_admin(
+  _group_id uuid,
+  _user_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.user_challenges uc
+    where uc.challenge_id = _group_id
+      and uc.user_id = _user_id
+      and uc.role = 'admin'
+  );
+$$;
+
+create or replace function public.user_challenges_set_creator_admin()
+returns trigger
+language plpgsql
+as $$
+begin
+  if exists (
+    select 1
+    from public.challenges c
+    where c.id = new.challenge_id
+      and c.created_by = new.user_id
+  ) then
+    new.role := 'admin';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_user_challenges_creator_admin on public.user_challenges;
+create trigger trg_user_challenges_creator_admin
+before insert on public.user_challenges
+for each row execute function public.user_challenges_set_creator_admin();
+
+create or replace function public.user_challenges_protect_role()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.role is distinct from old.role then
+    if auth.uid() is null then
+      return new;
+    end if;
+    if public.is_group_admin(old.challenge_id, auth.uid()) then
+      return new;
+    end if;
+    raise exception 'Not allowed to change membership role.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_user_challenges_protect_role on public.user_challenges;
+create trigger trg_user_challenges_protect_role
+before update on public.user_challenges
+for each row execute function public.user_challenges_protect_role();
 
 -- Group daily check-ins (members-only, anonymous UI in app).
 create table if not exists public.group_checkins (
@@ -358,9 +427,34 @@ create table if not exists public.group_messages (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references public.challenges (id) on delete cascade,
   sender_id uuid not null references public.profiles (id) on delete cascade,
+  message_type text not null default 'text',
   content text not null,
+  attachment_path text null,
+  attachment_name text null,
+  attachment_mime text null,
+  attachment_size bigint null,
   created_at timestamptz not null default now()
 );
+
+-- Backwards compatible: add columns if table already exists.
+alter table public.group_messages
+  add column if not exists message_type text not null default 'text',
+  add column if not exists attachment_path text null,
+  add column if not exists attachment_name text null,
+  add column if not exists attachment_mime text null,
+  add column if not exists attachment_size bigint null;
+
+-- Make existing group creators admins.
+update public.user_challenges uc
+set role = 'admin'
+from public.challenges c
+where c.id = uc.challenge_id
+  and c.created_by = uc.user_id;
+
+-- Group chat attachments bucket (private by default).
+insert into storage.buckets (id, name, public)
+values ('group-attachments', 'group-attachments', false)
+on conflict (id) do nothing;
 
 alter table public.challenges
   add column if not exists member_count integer not null default 0;
@@ -463,6 +557,16 @@ create table if not exists public.emergency_sessions (
   unique(user_id, session_id)
 );
 
+create table if not exists public.recovery_plans (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  triggers text[] not null default '{}'::text[],
+  warning_signs text[] not null default '{}'::text[],
+  coping_actions text[] not null default '{}'::text[],
+  support_message text null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -490,6 +594,11 @@ create trigger trg_profiles_updated_at
 before update on public.profiles
 for each row execute function public.set_updated_at();
 
+drop trigger if exists trg_recovery_plans_updated_at on public.recovery_plans;
+create trigger trg_recovery_plans_updated_at
+before update on public.recovery_plans
+for each row execute function public.set_updated_at();
+
 alter table public.profiles enable row level security;
 alter table public.journal_entries enable row level security;
 alter table public.community_posts enable row level security;
@@ -508,6 +617,8 @@ alter table public.user_badges enable row level security;
 alter table public.daily_prompts enable row level security;
 alter table public.support_connections enable row level security;
 alter table public.support_messages enable row level security;
+alter table public.emergency_sessions enable row level security;
+alter table public.recovery_plans enable row level security;
 alter table public.dm_threads enable row level security;
 alter table public.dm_messages enable row level security;
 
@@ -590,6 +701,47 @@ on public.community_posts
 for delete
 to authenticated
 using (auth.uid() = user_id);
+
+-- Atomic likes increment for community posts.
+--
+-- Why: With RLS, only the author can update their post row. Likes are a
+-- community action, so we expose a narrow RPC that increments the counter.
+-- Keep the implementation compatible with legacy schemas where `id` may be
+-- `bigint` instead of `uuid`.
+create or replace function public.community_like_post(post_id text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  id_type text;
+begin
+  if auth.uid() is null then
+    raise exception 'not_authenticated';
+  end if;
+
+  select data_type
+  into id_type
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'community_posts'
+    and column_name = 'id';
+
+  if id_type = 'bigint' then
+    update public.community_posts
+      set likes = coalesce(likes, 0) + 1
+    where id = post_id::bigint;
+  else
+    update public.community_posts
+      set likes = coalesce(likes, 0) + 1
+    where id = post_id::uuid;
+  end if;
+end;
+$$;
+
+revoke all on function public.community_like_post(text) from public;
+grant execute on function public.community_like_post(text) to authenticated;
 
 drop policy if exists community_replies_read on public.community_replies;
 create policy community_replies_read
@@ -783,14 +935,37 @@ create policy user_challenges_select_own
 on public.user_challenges
 for select
 to authenticated
-using (auth.uid() = user_id);
+using (
+  auth.uid() = user_id
+  or public.is_group_admin(challenge_id, auth.uid())
+);
 
 drop policy if exists user_challenges_insert_own on public.user_challenges;
 create policy user_challenges_insert_own
 on public.user_challenges
 for insert
 to authenticated
-with check (auth.uid() = user_id);
+with check (
+  (
+    auth.uid() = user_id
+    and (
+      role = 'member'
+      or (
+        role = 'admin'
+        and exists (
+          select 1
+          from public.challenges c
+          where c.id = challenge_id
+            and c.created_by = auth.uid()
+        )
+      )
+    )
+  )
+  or (
+    role = 'member'
+    and public.is_group_admin(challenge_id, auth.uid())
+  )
+);
 
 drop policy if exists user_challenges_update_own on public.user_challenges;
 create policy user_challenges_update_own
@@ -799,6 +974,19 @@ for update
 to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
+
+drop policy if exists user_challenges_delete_own on public.user_challenges;
+create policy user_challenges_delete_own
+on public.user_challenges
+for delete
+to authenticated
+using (
+  auth.uid() = user_id
+  or (
+    public.is_group_admin(challenge_id, auth.uid())
+    and role <> 'admin'
+  )
+);
 
 drop policy if exists group_checkins_select_member on public.group_checkins;
 create policy group_checkins_select_member
@@ -871,6 +1059,54 @@ on public.group_messages
 for delete
 to authenticated
 using (sender_id = auth.uid());
+
+-- Group chat attachments (Supabase Storage)
+drop policy if exists group_attachments_select_member on storage.objects;
+create policy group_attachments_select_member
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'group-attachments'
+  and split_part(name, '/', 1) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  and exists (
+    select 1
+    from public.user_challenges uc
+    where uc.challenge_id = split_part(name, '/', 1)::uuid
+      and uc.user_id = auth.uid()
+  )
+);
+
+drop policy if exists group_attachments_insert_member on storage.objects;
+create policy group_attachments_insert_member
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'group-attachments'
+  and split_part(name, '/', 1) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  and split_part(name, '/', 2) = auth.uid()::text
+  and exists (
+    select 1
+    from public.user_challenges uc
+    where uc.challenge_id = split_part(name, '/', 1)::uuid
+      and uc.user_id = auth.uid()
+  )
+);
+
+drop policy if exists group_attachments_delete_owner_or_admin on storage.objects;
+create policy group_attachments_delete_owner_or_admin
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'group-attachments'
+  and split_part(name, '/', 1) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  and (
+    split_part(name, '/', 2) = auth.uid()::text
+    or public.is_group_admin(split_part(name, '/', 1)::uuid, auth.uid())
+  )
+);
 
 drop policy if exists badges_select on public.badges;
 create policy badges_select
@@ -957,6 +1193,64 @@ with check (
       and c.user_id = auth.uid()
   )
 );
+
+drop policy if exists emergency_sessions_select_own on public.emergency_sessions;
+create policy emergency_sessions_select_own
+on public.emergency_sessions
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists emergency_sessions_insert_own on public.emergency_sessions;
+create policy emergency_sessions_insert_own
+on public.emergency_sessions
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists emergency_sessions_update_own on public.emergency_sessions;
+create policy emergency_sessions_update_own
+on public.emergency_sessions
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists emergency_sessions_delete_own on public.emergency_sessions;
+create policy emergency_sessions_delete_own
+on public.emergency_sessions
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists recovery_plans_select_own on public.recovery_plans;
+create policy recovery_plans_select_own
+on public.recovery_plans
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists recovery_plans_insert_own on public.recovery_plans;
+create policy recovery_plans_insert_own
+on public.recovery_plans
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists recovery_plans_update_own on public.recovery_plans;
+create policy recovery_plans_update_own
+on public.recovery_plans
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists recovery_plans_delete_own on public.recovery_plans;
+create policy recovery_plans_delete_own
+on public.recovery_plans
+for delete
+to authenticated
+using (auth.uid() = user_id);
 
 drop policy if exists dm_threads_select on public.dm_threads;
 create policy dm_threads_select

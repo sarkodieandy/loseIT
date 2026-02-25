@@ -182,6 +182,11 @@ class ProfileScreen extends ConsumerWidget {
                   child: const Text('Manage habits'),
                 ),
                 const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => context.push('/recovery-plan'),
+                  child: const Text('Recovery plan'),
+                ),
+                const SizedBox(height: 8),
                 PremiumGate(
                   lockedTitle: 'Support network',
                   lockedDescription: 'Premium required.',

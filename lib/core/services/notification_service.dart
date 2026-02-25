@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -8,19 +10,115 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/router.dart';
 import '../utils/app_logger.dart';
+import '../utils/anonymous_name.dart';
+import '../theme/app_theme.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
 
+  static const int _dailyCheckinNotificationId = 9001;
+  static const int _defaultDailyCheckinHour = 21; // 9pm local
+  static const int _defaultDailyCheckinMinute = 0;
+
   late FlutterLocalNotificationsPlugin _localNotifications;
   late SupabaseClient _supabase;
   bool _initialized = false;
+
+  StreamSubscription<AuthState>? _authStateSub;
+  StreamSubscription<List<Map<String, dynamic>>>? _notificationHistorySub;
+  StreamSubscription<List<Map<String, dynamic>>>? _notificationPrefsSub;
+  StreamSubscription<List<Map<String, dynamic>>>? _userChallengesSub;
+  RealtimeChannel? _groupMessagesChannel;
+
+  String? _activeUserId;
+  Set<String> _joinedGroupIds = <String>{};
+  final Map<String, String> _groupTitleCache = <String, String>{};
+  final Map<String, String> _lastNotifiedMessageIdByGroup = <String, String>{};
+  final Map<String, List<Message>> _recentChatMessagesByGroup =
+      <String, List<Message>>{};
+  bool _messageNotificationsEnabled = true;
 
   factory NotificationService() {
     return _instance;
   }
 
   NotificationService._internal();
+
+  static bool _isImageAttachment(String? fileName, String? mimeType) {
+    final mime = mimeType?.toLowerCase().trim();
+    if (mime != null && mime.startsWith('image/')) return true;
+    final name = fileName?.toLowerCase().trim() ?? '';
+    if (name.isEmpty || !name.contains('.')) return false;
+    final ext = name.split('.').last;
+    return <String>{'jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'}.contains(ext);
+  }
+
+  static bool _isVideoAttachment(String? fileName, String? mimeType) {
+    final mime = mimeType?.toLowerCase().trim();
+    if (mime != null && mime.startsWith('video/')) return true;
+    final name = fileName?.toLowerCase().trim() ?? '';
+    if (name.isEmpty || !name.contains('.')) return false;
+    final ext = name.split('.').last;
+    return <String>{'mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi'}.contains(ext);
+  }
+
+  static String _formatGroupChatNotificationText({
+    required String messageType,
+    required String content,
+    String? attachmentName,
+    String? attachmentMime,
+  }) {
+    final trimmed = content.trim();
+    if (messageType != 'file') return trimmed;
+
+    final name = (attachmentName ?? '').trim();
+    final safeName = name.isEmpty ? 'Attachment' : name;
+    final isImage = _isImageAttachment(safeName, attachmentMime);
+    final isVideo = _isVideoAttachment(safeName, attachmentMime);
+    final label = isImage ? 'Photo' : isVideo ? 'Video' : 'File';
+
+    if (label == 'File') {
+      if (trimmed.isEmpty || trimmed == safeName) {
+        return 'File: $safeName';
+      }
+      return 'File: $safeName — $trimmed';
+    }
+
+    if (trimmed.isEmpty || trimmed == safeName) return label;
+    return '$label: $trimmed';
+  }
+
+  Future<void> dispose() async {
+    await _authStateSub?.cancel();
+    _authStateSub = null;
+    await _stopUserListeners();
+    _initialized = false;
+  }
+
+  /// Manually refresh group memberships and the group chat notification channel.
+  ///
+  /// Useful after joining/creating a group if realtime is unavailable.
+  Future<void> refreshGroupChatSubscriptions() async {
+    final userId = _activeUserId;
+    if (userId == null) return;
+    try {
+      final rows = await _supabase
+          .from('user_challenges')
+          .select('challenge_id')
+          .eq('user_id', userId);
+
+      final normalized = <Map<String, dynamic>>[];
+      for (final raw in rows as List) {
+        if (raw is Map) {
+          normalized.add(Map<String, dynamic>.from(raw));
+        }
+      }
+
+      await _syncGroupSubscriptions(userId, normalized);
+    } catch (e, st) {
+      AppLogger.error('notifications.refreshGroups', e, st);
+    }
+  }
 
   Future<void> initialize(SupabaseClient supabaseClient) async {
     if (_initialized) {
@@ -55,6 +153,17 @@ class NotificationService {
         initSettings,
         onDidReceiveNotificationResponse: _handleNotificationTap,
       );
+
+      // Request notification permissions (Android 13+)
+      final androidImpl =
+          _localNotifications.resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      if (androidImpl != null) {
+        final granted = await androidImpl.requestNotificationsPermission();
+        if (granted == false) {
+          AppLogger.warn('Notifications permission denied on Android');
+        }
+      }
 
       // Request notification permissions (iOS)
       final iosImpl = _localNotifications.resolvePlatformSpecificImplementation<
@@ -96,14 +205,22 @@ class NotificationService {
         await AwesomeNotifications().requestPermissionToSendNotifications();
       }
 
+      // Configure local timezone for accurate scheduled notifications.
+      await _configureLocalTimezone();
+
       // Schedule the hourly sober notification (fires on startup)
       scheduleHourlyReminder();
 
       // Create notification channels (Android)
       await _createNotificationChannels();
 
-      // Listen for Supabase Realtime notifications
-      _listenToSupabaseNotifications();
+      // Keep listeners in sync with the authenticated user.
+      _authStateSub = _supabase.auth.onAuthStateChange.listen((state) {
+        unawaited(_setActiveUser(state.session?.user.id));
+      });
+
+      // Start listeners for the current session (if any)
+      await _setActiveUser(_supabase.auth.currentUser?.id);
 
       _initialized = true;
       AppLogger.info(
@@ -153,6 +270,195 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(motivationalChannel);
+
+    const AndroidNotificationChannel groupChatChannel =
+        AndroidNotificationChannel(
+      'group_chat_channel',
+      'Group Chat',
+      description: 'Notifications for new group chat messages',
+      importance: Importance.high,
+    );
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(groupChatChannel);
+  }
+
+  Future<void> _setActiveUser(String? userId) async {
+    if (userId == _activeUserId) return;
+
+    // Stop previous subscriptions (user changed or logged out).
+    await _stopUserListeners();
+
+    _activeUserId = userId;
+    _recentChatMessagesByGroup.clear();
+    if (userId == null) {
+      try {
+        await _localNotifications.cancel(_dailyCheckinNotificationId);
+      } catch (_) {}
+      AppLogger.info('Notifications: no active user, listeners stopped');
+      return;
+    }
+
+    _messageNotificationsEnabled =
+        await _loadMessageNotificationsEnabled(userId);
+    _listenToNotificationPreferences(userId);
+
+    _listenToSupabaseNotifications(userId);
+    _listenToUserGroups(userId);
+
+    // Schedule the daily check-in reminder on app launch and whenever the user logs in.
+    unawaited(_syncDailyCheckinReminder(userId));
+  }
+
+  Future<void> _stopUserListeners() async {
+    await _notificationHistorySub?.cancel();
+    _notificationHistorySub = null;
+
+    await _notificationPrefsSub?.cancel();
+    _notificationPrefsSub = null;
+
+    await _userChallengesSub?.cancel();
+    _userChallengesSub = null;
+
+    _joinedGroupIds = <String>{};
+    _groupTitleCache.clear();
+    _lastNotifiedMessageIdByGroup.clear();
+
+    final channel = _groupMessagesChannel;
+    _groupMessagesChannel = null;
+    if (channel != null) {
+      try {
+        await _supabase.removeChannel(channel);
+      } catch (_) {}
+    }
+  }
+
+  Future<bool> _loadMessageNotificationsEnabled(String userId) async {
+    try {
+      final row = await _supabase
+          .from('notification_preferences')
+          .select('message_notifications')
+          .eq('user_id', userId)
+          .maybeSingle();
+      final enabled = row?['message_notifications'];
+      if (enabled is bool) return enabled;
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  void _listenToNotificationPreferences(String userId) {
+    try {
+      _notificationPrefsSub = _supabase
+          .from('notification_preferences')
+          .stream(primaryKey: ['id'])
+          .eq('user_id', userId)
+          .limit(1)
+          .listen(
+            (rows) {
+              if (rows.isEmpty) return;
+              final enabled = rows.first['message_notifications'];
+              if (enabled is bool) {
+                _messageNotificationsEnabled = enabled;
+              }
+
+              final daily = rows.first['community_digest'];
+              if (daily is bool) {
+                // Keep the daily reminder in sync if user toggles preferences.
+                unawaited(_applyDailyCheckinEnabled(userId, daily));
+              }
+            },
+            onError: (_) {},
+          );
+    } catch (_) {
+      // best-effort
+    }
+  }
+
+  Future<void> _configureLocalTimezone() async {
+    try {
+      final name = await AwesomeNotifications().getLocalTimeZoneIdentifier();
+      if (name.trim().isEmpty) return;
+      tz.setLocalLocation(tz.getLocation(name));
+      AppLogger.info('Timezone configured: $name');
+    } catch (e) {
+      // Best-effort; fallback to tz.local default.
+      AppLogger.warn('Timezone configure failed: $e');
+    }
+  }
+
+  Future<void> _applyDailyCheckinEnabled(String userId, bool enabled) async {
+    if (!enabled) {
+      try {
+        await _localNotifications.cancel(_dailyCheckinNotificationId);
+      } catch (_) {}
+      return;
+    }
+    await _syncDailyCheckinReminder(userId);
+  }
+
+  Future<void> _syncDailyCheckinReminder(String userId) async {
+    // Use `notification_preferences.community_digest` as the toggle for the daily
+    // check-in reminder (keeps DB schema unchanged).
+    var enabled = true;
+    var shouldUpsertEnabled = false;
+    try {
+      final row = await _supabase
+          .from('notification_preferences')
+          .select('community_digest')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (row == null) {
+        enabled = true;
+        shouldUpsertEnabled = true;
+      } else {
+        final raw = row['community_digest'];
+        if (raw is bool) {
+          enabled = raw;
+        } else {
+          enabled = true;
+          shouldUpsertEnabled = true;
+        }
+      }
+    } catch (e) {
+      // If the preferences table isn't available yet, still schedule a reminder.
+      enabled = true;
+    }
+
+    if (!enabled) {
+      try {
+        await _localNotifications.cancel(_dailyCheckinNotificationId);
+      } catch (_) {}
+      return;
+    }
+
+    if (shouldUpsertEnabled) {
+      try {
+        await _supabase.from('notification_preferences').upsert(
+          <String, dynamic>{
+            'user_id': userId,
+            'community_digest': true,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          },
+          onConflict: 'user_id',
+        );
+      } catch (_) {
+        // best-effort
+      }
+    }
+
+    await scheduleDailyReminder(
+      id: _dailyCheckinNotificationId,
+      hour: _defaultDailyCheckinHour,
+      minute: _defaultDailyCheckinMinute,
+      title: 'Daily check‑in',
+      body: 'Take 30 seconds to check in with your group.',
+      payload: 'daily_checkin',
+    );
   }
 
   // Check if current time is within quiet hours
@@ -190,6 +496,86 @@ class NotificationService {
       AppLogger.error('_isQuietHours', e);
       return false;
     }
+  }
+
+  Future<void> showGroupChatNotification({
+    required String groupId,
+    required String groupTitle,
+    required String senderName,
+    required String message,
+    required String messageId,
+  }) async {
+    final trimmed = message.trim();
+    if (trimmed.isEmpty) return;
+
+    // Respect the user's message notification toggle if available.
+    if (!_messageNotificationsEnabled) return;
+
+    // Respect quiet hours if configured.
+    if (await _isQuietHours()) return;
+
+    final preview =
+        trimmed.length > 180 ? '${trimmed.substring(0, 180)}…' : trimmed;
+
+    final me = Person(
+      key: _activeUserId ?? 'me',
+      name: 'You',
+    );
+    final sender = Person(
+      key: senderName,
+      name: senderName,
+    );
+    final history = _recentChatMessagesByGroup.putIfAbsent(
+      groupId,
+      () => <Message>[],
+    );
+    history.add(Message(preview, DateTime.now(), sender));
+    if (history.length > 6) {
+      history.removeRange(0, history.length - 6);
+    }
+
+    final androidDetails = AndroidNotificationDetails(
+      'group_chat_channel',
+      'Group Chat',
+      channelDescription: 'Notifications for new group chat messages',
+      importance: Importance.high,
+      priority: Priority.high,
+      category: AndroidNotificationCategory.message,
+      color: AppTheme.seed,
+      styleInformation: MessagingStyleInformation(
+        me,
+        conversationTitle: groupTitle,
+        groupConversation: true,
+        messages: List<Message>.from(history),
+      ),
+      enableVibration: true,
+      playSound: true,
+      showWhen: true,
+      groupKey: 'group_chat_$groupId',
+    );
+
+    final iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      threadIdentifier: 'group_chat_$groupId',
+      subtitle: senderName,
+    );
+
+    final notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    // Use a stable id per group so the notification updates like a real chat.
+    final id = groupId.hashCode & 0x7fffffff;
+    await _localNotifications.show(
+      id,
+      groupTitle,
+      preview,
+      notificationDetails,
+      payload: 'group_chat:$groupId',
+    );
   }
 
   // Show achievement notification
@@ -236,6 +622,7 @@ class NotificationService {
   Future<void> showReminderNotification({
     required String title,
     required String body,
+    String payload = 'reminder',
   }) async {
     // Respect quiet hours for reminders
     if (await _isQuietHours()) {
@@ -264,20 +651,22 @@ class NotificationService {
     );
 
     await _localNotifications.show(
-      DateTime.now().millisecond,
+      DateTime.now().millisecondsSinceEpoch.remainder(1 << 31),
       title,
       body,
       notificationDetails,
-      payload: 'reminder',
+      payload: payload,
     );
   }
 
   // Schedule daily reminder
   Future<void> scheduleDailyReminder({
+    int id = 1,
     required int hour,
     required int minute,
     required String title,
     required String body,
+    String? payload,
   }) async {
     final now = tz.TZDateTime.now(tz.local);
     var scheduledDate = tz.TZDateTime(
@@ -315,7 +704,7 @@ class NotificationService {
     );
 
     await _localNotifications.zonedSchedule(
-      1, // Daily reminder ID
+      id,
       title,
       body,
       scheduledDate,
@@ -324,6 +713,7 @@ class NotificationService {
       matchDateTimeComponents: DateTimeComponents.time,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
+      payload: payload,
     );
   }
 
@@ -374,20 +764,14 @@ class NotificationService {
 
   // Disable daily reminder task
   Future<void> disableDailyReminderTask(String userId) async {
-    await Workmanager().cancelByTag('daily_reminder_$userId');
+    await Workmanager().cancelByUniqueName('daily_reminder_$userId');
   }
 
   // Listen to Supabase Realtime for notifications
-  void _listenToSupabaseNotifications() {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) {
-      AppLogger.warn('Cannot listen to notifications: user not authenticated');
-      return;
-    }
-
+  void _listenToSupabaseNotifications(String userId) {
     try {
       // Subscribe to realtime stream
-      _supabase
+      _notificationHistorySub = _supabase
           .from('notification_history')
           .stream(primaryKey: ['id'])
           .eq('user_id', userId)
@@ -403,6 +787,180 @@ class NotificationService {
       AppLogger.info('Supabase Realtime listener started for user: $userId');
     } catch (e) {
       AppLogger.error('_listenToSupabaseNotifications', e);
+    }
+  }
+
+  void _listenToUserGroups(String userId) {
+    try {
+      _userChallengesSub = _supabase
+          .from('user_challenges')
+          .stream(primaryKey: ['id'])
+          .eq('user_id', userId)
+          .listen(
+            (rows) {
+              unawaited(_syncGroupSubscriptions(userId, rows));
+            },
+            onError: (error) {
+              AppLogger.error('user_challenges stream error', error as Object);
+            },
+          );
+    } catch (e) {
+      AppLogger.error('_listenToUserGroups', e);
+    }
+  }
+
+  static bool _setEquals(Set<String> a, Set<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (final item in a) {
+      if (!b.contains(item)) return false;
+    }
+    return true;
+  }
+
+  Future<void> _syncGroupSubscriptions(
+    String userId,
+    List<Map<String, dynamic>> rows,
+  ) async {
+    final groupIds = <String>{};
+    for (final row in rows) {
+      final groupId = row['challenge_id']?.toString();
+      if (groupId == null || groupId.isEmpty) continue;
+      groupIds.add(groupId);
+    }
+
+    if (_setEquals(_joinedGroupIds, groupIds)) return;
+    _joinedGroupIds = groupIds;
+
+    // Clear any cached ids for groups that were left.
+    _lastNotifiedMessageIdByGroup
+        .removeWhere((groupId, _) => !groupIds.contains(groupId));
+
+    await _warmGroupTitleCache(groupIds);
+    await _restartGroupMessagesChannel(userId, groupIds);
+  }
+
+  Future<void> _warmGroupTitleCache(Set<String> groupIds) async {
+    if (groupIds.isEmpty) return;
+    try {
+      final missing = groupIds.where((id) => !_groupTitleCache.containsKey(id));
+      final ids = missing.toList(growable: false);
+      if (ids.isEmpty) return;
+
+      final rows = await _supabase
+          .from('challenges')
+          .select('id,title')
+          .inFilter('id', ids);
+      for (final raw in rows as List) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final id = row['id']?.toString();
+        final title = row['title']?.toString();
+        if (id == null || id.isEmpty) continue;
+        if (title == null || title.trim().isEmpty) continue;
+        _groupTitleCache[id] = title.trim();
+      }
+    } catch (_) {
+      // best-effort
+    }
+  }
+
+  Future<void> _restartGroupMessagesChannel(
+    String userId,
+    Set<String> groupIds,
+  ) async {
+    final existing = _groupMessagesChannel;
+    _groupMessagesChannel = null;
+    if (existing != null) {
+      try {
+        await _supabase.removeChannel(existing);
+      } catch (_) {}
+    }
+
+    if (groupIds.isEmpty) return;
+
+    try {
+      final channel = _supabase.channel('group_messages:$userId');
+      _groupMessagesChannel = channel
+          .onPostgresChanges(
+            event: PostgresChangeEvent.insert,
+            schema: 'public',
+            table: 'group_messages',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.inFilter,
+              column: 'group_id',
+              value: groupIds.toList(growable: false),
+            ),
+            callback: (payload) {
+              unawaited(_handleGroupMessageInsert(payload));
+            },
+          )
+          .subscribe();
+
+      AppLogger.info(
+          'Group chat notifications enabled for ${groupIds.length} groups');
+    } catch (e) {
+      AppLogger.error('_restartGroupMessagesChannel', e);
+    }
+  }
+
+  bool _isViewingGroupChat(String groupId) {
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx == null) return false;
+    try {
+      final router = GoRouter.of(ctx);
+      final path = router.routerDelegate.currentConfiguration.uri.path;
+      return path == '/groups/$groupId/chat';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _handleGroupMessageInsert(PostgresChangePayload payload) async {
+    final userId = _activeUserId;
+    if (userId == null) return;
+
+    final record = payload.newRecord;
+    final groupId = record['group_id']?.toString();
+    if (groupId == null || groupId.isEmpty) return;
+
+    final senderId = record['sender_id']?.toString();
+    if (senderId == null || senderId.isEmpty || senderId == userId) return;
+
+    final messageId = record['id']?.toString();
+    if (messageId == null || messageId.isEmpty) return;
+
+    // Dedupe for safety.
+    if (_lastNotifiedMessageIdByGroup[groupId] == messageId) return;
+
+    // Don't notify if user is already in this chat.
+    if (_isViewingGroupChat(groupId)) return;
+
+    final messageType = record['message_type']?.toString() ?? 'text';
+    final content = record['content']?.toString() ?? '';
+    final attachmentName = record['attachment_name']?.toString();
+    final attachmentMime = record['attachment_mime']?.toString();
+    final messageText = _formatGroupChatNotificationText(
+      messageType: messageType,
+      content: content,
+      attachmentName: attachmentName,
+      attachmentMime: attachmentMime,
+    );
+    if (messageText.trim().isEmpty) return;
+
+    final groupTitle = _groupTitleCache[groupId] ?? 'Group chat';
+    final senderName = anonymousNameFor(senderId);
+
+    try {
+      await showGroupChatNotification(
+        groupId: groupId,
+        groupTitle: groupTitle,
+        senderName: senderName,
+        message: messageText,
+        messageId: messageId,
+      );
+      _lastNotifiedMessageIdByGroup[groupId] = messageId;
+    } catch (e) {
+      AppLogger.error('groupChat.notify', e);
     }
   }
 
@@ -473,8 +1031,16 @@ class NotificationService {
           }
         } else if (payload == 'reminder') {
           router.go('/');
+        } else if (payload == 'daily_checkin') {
+          router.push('/daily-checkin');
         } else if (payload == 'paywall') {
           router.push('/paywall');
+        } else if (payload.startsWith('group_chat:')) {
+          final parts = payload.split(':');
+          final groupId = parts.length > 1 ? parts[1] : null;
+          if (groupId != null && groupId.isNotEmpty) {
+            router.push('/groups/$groupId/chat');
+          }
         } else {
           // unknown payload, open home
           router.go('/');
@@ -507,8 +1073,9 @@ void callbackDispatcher() {
     if (taskName == 'dailyReminderTask') {
       final notificationService = NotificationService();
       await notificationService.showReminderNotification(
-        title: '⏰ Time to check your progress!',
-        body: 'Open the app to log your daily progress and earn points',
+        title: 'Daily check‑in',
+        body: 'Take 30 seconds to check in with your group.',
+        payload: 'daily_checkin',
       );
     }
     return Future.value(true);

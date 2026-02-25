@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/notification_service.dart';
 import '../../../core/utils/anonymous_name.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/unread_dot.dart';
 import '../../../data/models/group_checkin.dart';
+import '../../../data/models/user_challenge.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/data_providers.dart';
 import '../../../providers/group_chat_unread_providers.dart';
@@ -27,12 +29,22 @@ class GroupDetailScreen extends ConsumerWidget {
     final groupAsync = ref.watch(groupProvider(groupId));
     final joinedAsync = ref.watch(userChallengesProvider);
 
-    final isJoined = joinedAsync.asData?.value
-            .any((item) => item.challengeId == groupId) ??
-        false;
-    final hasUnread = isJoined
-        ? ref.watch(groupChatHasUnreadProvider(groupId))
-        : false;
+    final isJoined =
+        joinedAsync.asData?.value.any((item) => item.challengeId == groupId) ??
+            false;
+    UserChallenge? myMembership;
+    final memberships = joinedAsync.asData?.value;
+    if (memberships != null) {
+      for (final item in memberships) {
+        if (item.challengeId == groupId) {
+          myMembership = item;
+          break;
+        }
+      }
+    }
+    final isAdmin = myMembership?.isAdmin ?? false;
+    final hasUnread =
+        isJoined ? ref.watch(groupChatHasUnreadProvider(groupId)) : false;
 
     final groupTitle = groupAsync.asData?.value?.title ?? 'Group';
 
@@ -41,12 +53,21 @@ class GroupDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(groupTitle),
         actions: <Widget>[
+          if (isJoined && isAdmin)
+            IconButton(
+              tooltip: 'Manage members',
+              onPressed: () => context.push('/groups/$groupId/members'),
+              icon: const Icon(Icons.manage_accounts_outlined),
+            ),
           if (isJoined)
             TextButton(
               onPressed: () async {
-                await ref.read(challengesRepositoryProvider).leaveGroup(groupId);
+                await ref
+                    .read(challengesRepositoryProvider)
+                    .leaveGroup(groupId);
                 ref.invalidate(userChallengesProvider);
                 ref.invalidate(challengesProvider);
+                await NotificationService().refreshGroupChatSubscriptions();
                 if (context.mounted) context.pop();
               },
               style: TextButton.styleFrom(
@@ -91,10 +112,12 @@ class GroupDetailScreen extends ConsumerWidget {
                         children: <Widget>[
                           Text(
                             group.title,
-                            style:
-                                Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w900,
-                                    ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                ),
                           ),
                           const SizedBox(height: 10),
                           Wrap(
@@ -153,6 +176,31 @@ class GroupDetailScreen extends ConsumerWidget {
                       color: TribeColors.muted(context)),
                 ),
               ),
+              if (isJoined && isAdmin) ...<Widget>[
+                const SizedBox(height: 12),
+                _Card(
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    onTap: () => context.push('/groups/$groupId/members'),
+                    leading: Icon(
+                      Icons.manage_accounts_outlined,
+                      color: TribeColors.muted(context),
+                    ),
+                    title: const Text(
+                      'Manage members',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    subtitle: Text(
+                      'Add or remove members.',
+                      style: TextStyle(color: TribeColors.muted(context)),
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      color: TribeColors.muted(context),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               _ChatPreview(groupId: groupId),
               const SizedBox(height: 18),
@@ -189,6 +237,8 @@ class GroupDetailScreen extends ConsumerWidget {
                               .startChallenge(groupId);
                           ref.invalidate(userChallengesProvider);
                           ref.invalidate(challengesProvider);
+                          await NotificationService()
+                              .refreshGroupChatSubscriptions();
                         },
                         child: const Text('Join'),
                       ),
@@ -365,7 +415,8 @@ class _CheckinPanelState extends ConsumerState<_CheckinPanel> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(noteController.text.trim()),
+            onPressed: () =>
+                Navigator.of(context).pop(noteController.text.trim()),
             child: const Text('Check in'),
           ),
         ],
@@ -402,7 +453,8 @@ class _CheckinPanelState extends ConsumerState<_CheckinPanel> {
     final checkedInToday = myId == null
         ? false
         : checkins.any((c) {
-            final d = DateTime(c.checkinDate.year, c.checkinDate.month, c.checkinDate.day);
+            final d = DateTime(
+                c.checkinDate.year, c.checkinDate.month, c.checkinDate.day);
             return c.userId == myId && d == todayKey;
           });
 
@@ -472,7 +524,8 @@ class _TodayCheckins extends ConsumerWidget {
     return checkinsAsync.when(
       data: (checkins) {
         final todayCheckins = checkins.where((c) {
-          final d = DateTime(c.checkinDate.year, c.checkinDate.month, c.checkinDate.day);
+          final d = DateTime(
+              c.checkinDate.year, c.checkinDate.month, c.checkinDate.day);
           return d == todayKey;
         }).toList(growable: false);
 
@@ -570,7 +623,8 @@ class _StreakBoard extends ConsumerWidget {
 
         final byUser = <String, Set<DateTime>>{};
         for (final c in checkins) {
-          final day = DateTime(c.checkinDate.year, c.checkinDate.month, c.checkinDate.day);
+          final day = DateTime(
+              c.checkinDate.year, c.checkinDate.month, c.checkinDate.day);
           (byUser[c.userId] ??= <DateTime>{}).add(day);
         }
 

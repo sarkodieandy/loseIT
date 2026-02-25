@@ -39,6 +39,9 @@ dependencies:
   home_widget: ^0.7.0
   screenshot: ^3.0.0
   url_launcher: ^6.3.1
+  file_picker: ^8.0.0
+  image_gallery_saver: ^2.0.3
+  uuid: ^4.4.2
 
 dev_dependencies:
   flutter_test:

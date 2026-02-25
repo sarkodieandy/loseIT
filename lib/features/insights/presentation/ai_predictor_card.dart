@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/section_card.dart';
 import '../../../data/models/relapse_prediction.dart';
@@ -46,6 +47,8 @@ class AiPredictorCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final color = _getRiskColor(prediction.riskLevel);
     final icon = _getRiskIcon(prediction.riskLevel);
+    final showCta =
+        prediction.riskLevel == 'critical' || prediction.riskLevel == 'high';
 
     return SectionCard(
       child: Column(
@@ -204,6 +207,28 @@ class AiPredictorCard extends ConsumerWidget {
                 ),
               );
             }),
+            const SizedBox(height: 12),
+          ],
+          if (showCta) ...[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => context.push('/emergency-sos'),
+                    icon: const Icon(Icons.emergency_rounded),
+                    label: const Text('Open SOS'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.push('/focus/urge'),
+                    icon: const Icon(Icons.timer_outlined),
+                    label: const Text('Urge timer'),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
           ],
           // Confidence indicator

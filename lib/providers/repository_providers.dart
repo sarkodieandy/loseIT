@@ -12,6 +12,7 @@ import '../data/repositories/milestones_repository.dart';
 import '../data/repositories/mood_repository.dart';
 import '../data/repositories/prompts_repository.dart';
 import '../data/repositories/profile_repository.dart';
+import '../data/repositories/recovery_plan_repository.dart';
 import '../data/repositories/relapse_repository.dart';
 import '../data/repositories/support_repository.dart';
 import '../data/repositories/urge_repository.dart';
@@ -85,6 +86,11 @@ final relapseRepositoryProvider = Provider<RelapseRepository>((ref) {
 final urgeRepositoryProvider = Provider<UrgeRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return UrgeRepository(client);
+});
+
+final recoveryPlanRepositoryProvider = Provider<RecoveryPlanRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return RecoveryPlanRepository(client);
 });
 final emergencySessionsRepositoryProvider =
     Provider<EmergencySessionsRepository>((ref) {

@@ -1,8 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/app_logger.dart';
+import '../../../core/widgets/section_card.dart';
 import '../../../data/services/emergency_sos_service.dart';
+import '../../../providers/data_providers.dart';
 
 class EmergencySosScreen extends ConsumerStatefulWidget {
   const EmergencySosScreen({super.key});
@@ -14,14 +20,18 @@ class EmergencySosScreen extends ConsumerStatefulWidget {
 class _EmergencySosScreenState extends ConsumerState<EmergencySosScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
-  int _secondsElapsed = 0;
-  bool _breathing = false;
   late AnimationController _breatheAnimController;
+
+  Timer? _elapsedTimer;
+  String? _activeSessionId;
+  bool _breathing = false;
+  bool _contactedSupport = false;
+  int _secondsElapsed = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _breatheAnimController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
@@ -32,34 +42,62 @@ class _EmergencySosScreenState extends ConsumerState<EmergencySosScreen>
   void dispose() {
     _tabController.dispose();
     _breatheAnimController.dispose();
+    _elapsedTimer?.cancel();
     super.dispose();
   }
 
   void _startBreathingExercise() async {
-    setState(() => _breathing = true);
-    final session = await EmergencySosService.instance
-        .startEmergencySOS(technique: 'breathing');
+    if (_breathing) return;
+
+    setState(() {
+      _breathing = true;
+      _contactedSupport = false;
+      _secondsElapsed = 0;
+      _activeSessionId = null;
+    });
+
+    final session = await EmergencySosService.instance.startEmergencySOS(
+      technique: 'breathing',
+    );
+    if (!mounted) return;
     if (session != null) {
+      setState(() => _activeSessionId = session.id);
       AppLogger.info('sos: breathing exercise started');
     }
+
+    _elapsedTimer?.cancel();
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || !_breathing) return;
+      setState(() => _secondsElapsed += 1);
+    });
   }
 
   void _stopBreathingExercise() async {
-    setState(() => _breathing = false);
+    if (!_breathing) return;
+    _elapsedTimer?.cancel();
+    final sessionId = _activeSessionId ??
+        DateTime.now().millisecondsSinceEpoch.toString(); // fallback
+    final durationSeconds = _secondsElapsed;
+    final contactedSupport = _contactedSupport;
+
+    setState(() {
+      _breathing = false;
+      _activeSessionId = null;
+    });
+
     await EmergencySosService.instance.completeSession(
-      sessionId: DateTime.now().millisecondsSinceEpoch.toString(),
-      durationSeconds: _secondsElapsed,
-      contactedSupport: false,
+      sessionId: sessionId,
+      technique: 'breathing',
+      durationSeconds: durationSeconds,
+      contactedSupport: contactedSupport,
       notes: 'Breathing exercise completed',
     );
   }
 
   void _contactSupport() {
-    AppLogger.info('sos: contacting support network');
-    // This would open a modal to contact support network
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Notifying your support network...')),
-    );
+    setState(() => _contactedSupport = true);
+    AppLogger.info('sos: contact support');
+    context.push('/support');
   }
 
   @override
@@ -68,44 +106,193 @@ class _EmergencySosScreenState extends ConsumerState<EmergencySosScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Emergency Support'),
+        title: const Text('SOS Mode'),
         elevation: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: colorScheme.primary,
+          unselectedLabelColor: colorScheme.outline,
+          indicatorColor: colorScheme.primary,
+          tabs: const <Widget>[
+            Tab(text: 'Urge Surf', icon: Icon(Icons.waves_rounded)),
+            Tab(text: 'Breathing', icon: Icon(Icons.air_rounded)),
+            Tab(text: 'Grounding', icon: Icon(Icons.spa_rounded)),
+            Tab(text: 'Plan', icon: Icon(Icons.checklist_rounded)),
+          ],
+        ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabController,
         children: <Widget>[
-          // Tab selector
+          _UrgeSurfTab(
+            onStartUrgeTimer: () => context.push('/focus/urge'),
+            onOpenCravingRescue: () => context.push('/focus'),
+            onOpenPlan: () => context.push('/recovery-plan'),
+          ),
+          _BreathingExerciseTab(
+            breathing: _breathing,
+            secondsElapsed: _secondsElapsed,
+            breatheAnimController: _breatheAnimController,
+            onStart: _startBreathingExercise,
+            onStop: _stopBreathingExercise,
+            onContact: _contactSupport,
+          ),
+          _GroundingTab(onContact: _contactSupport),
+          const _PlanTab(),
+        ],
+      ),
+    );
+  }
+}
+
+class _UrgeSurfTab extends StatelessWidget {
+  const _UrgeSurfTab({
+    required this.onStartUrgeTimer,
+    required this.onOpenCravingRescue,
+    required this.onOpenPlan,
+  });
+
+  final VoidCallback onStartUrgeTimer;
+  final VoidCallback onOpenCravingRescue;
+  final VoidCallback onOpenPlan;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: <Widget>[
+        SectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'Urge Surf',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Urges peak and fall like waves. Your job is to stay on the board for the next few minutes.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      height: 1.4,
+                    ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: <Widget>[
+                  FilledButton.icon(
+                    onPressed: onStartUrgeTimer,
+                    icon: const Icon(Icons.timer_outlined),
+                    label: const Text('Start timer'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: onOpenCravingRescue,
+                    icon: const Icon(Icons.headphones),
+                    label: const Text('Craving audio'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SectionCard(
+          child: Row(
+            children: <Widget>[
+              Icon(Icons.checklist_rounded, color: scheme.primary),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Make your plan now so you can follow it later — even when you’re stressed.',
+                  style: TextStyle(fontWeight: FontWeight.w600, height: 1.4),
+                ),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: onOpenPlan,
+                child: const Text('Edit'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Mini steps',
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 10),
+        const _MiniStep(
+          index: 1,
+          text: 'Change your environment (stand up, move rooms, go outside).',
+        ),
+        const SizedBox(height: 8),
+        const _MiniStep(
+          index: 2,
+          text: 'Name the urge: “This is just a wave. It will pass.”',
+        ),
+        const SizedBox(height: 8),
+        const _MiniStep(
+          index: 3,
+          text: 'Do 60 seconds of breathing or grounding — then repeat.',
+        ),
+      ],
+    );
+  }
+}
+
+class _MiniStep extends StatelessWidget {
+  const _MiniStep({
+    required this.index,
+    required this.text,
+  });
+
+  final int index;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: scheme.primary.withValues(alpha: 0.12),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
           Container(
-            color: Theme.of(context).colorScheme.surface,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: colorScheme.primary,
-              unselectedLabelColor: colorScheme.outline,
-              indicatorColor: colorScheme.primary,
-              tabs: const <Widget>[
-                Tab(text: '🫁 Breathing'),
-                Tab(text: '🧠 Grounding'),
-              ],
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: scheme.primary.withValues(alpha: 0.12),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '$index',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                color: scheme.primary,
+              ),
             ),
           ),
-          // Tab content
+          const SizedBox(width: 12),
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: <Widget>[
-                // Breathing Exercise
-                _BreathingTab(
-                  breathing: _breathing,
-                  secondsElapsed: _secondsElapsed,
-                  breatheAnimController: _breatheAnimController,
-                  onStart: _startBreathingExercise,
-                  onStop: _stopBreathingExercise,
-                  onContact: _contactSupport,
-                ),
-                // Grounding Technique
-                _GroundingTab(
-                  onContact: _contactSupport,
-                ),
-              ],
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    height: 1.35,
+                  ),
             ),
           ),
         ],
@@ -114,8 +301,8 @@ class _EmergencySosScreenState extends ConsumerState<EmergencySosScreen>
   }
 }
 
-class _BreathingTab extends StatefulWidget {
-  const _BreathingTab({
+class _BreathingExerciseTab extends StatelessWidget {
+  const _BreathingExerciseTab({
     required this.breathing,
     required this.secondsElapsed,
     required this.breatheAnimController,
@@ -132,97 +319,93 @@ class _BreathingTab extends StatefulWidget {
   final VoidCallback onContact;
 
   @override
-  State<_BreathingTab> createState() => _BreathingTabState();
-}
-
-class _BreathingTabState extends State<_BreathingTab> {
-  late int _seconds = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _startTimer();
-  }
-
-  void _startTimer() {
-    Future.doWhile(() async {
-      await Future.delayed(const Duration(seconds: 1));
-      if (widget.breathing && mounted) {
-        setState(() => _seconds++);
-      }
-      return widget.breathing;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final mm = (secondsElapsed ~/ 60).toString().padLeft(2, '0');
+    final ss = (secondsElapsed % 60).toString().padLeft(2, '0');
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          const SizedBox(height: 20),
-          Text(
-            'Follow the circle',
-            style: Theme.of(context).textTheme.titleLarge,
-            textAlign: TextAlign.center,
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: <Widget>[
+        SectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'Breathing reset',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Follow the circle: inhale… hold… exhale…',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      height: 1.4,
+                    ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Breathe in slowly, hold, then exhale.',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 48),
-          // Breathing animation circle
-          ScaleTransition(
-            scale: Tween<double>(begin: 0.8, end: 1.5)
-                .animate(widget.breatheAnimController),
+        ),
+        const SizedBox(height: 18),
+        Center(
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.82, end: 1.35).animate(
+              CurvedAnimation(
+                parent: breatheAnimController,
+                curve: Curves.easeInOut,
+              ),
+            ),
             child: Container(
-              width: 120,
-              height: 120,
+              width: 150,
+              height: 150,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: colorScheme.primary.withValues(alpha: 0.2),
+                color: colorScheme.primary.withValues(alpha: 0.16),
                 border: Border.all(
-                  color: colorScheme.primary,
+                  color: colorScheme.primary.withValues(alpha: 0.65),
                   width: 3,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 48),
-          Text(
-            '${_seconds ~/ 60}:${(_seconds % 60).toString().padLeft(2, '0')}',
-            style: Theme.of(context).textTheme.displayLarge,
+        ),
+        const SizedBox(height: 18),
+        Center(
+          child: Text(
+            '$mm:$ss',
+            style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
           ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor:
-                    widget.breathing ? colorScheme.error : colorScheme.primary,
-              ),
-              onPressed: widget.breathing ? widget.onStop : widget.onStart,
-              child:
-                  Text(widget.breathing ? 'Stop Exercise' : 'Start Exercise'),
+        ),
+        const SizedBox(height: 18),
+        SizedBox(
+          height: 52,
+          child: FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: breathing ? colorScheme.error : null,
             ),
+            onPressed: breathing ? onStop : onStart,
+            child: Text(breathing ? 'Stop' : 'Start'),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: OutlinedButton(
-              onPressed: widget.onContact,
-              child: const Text('Contact Support Network'),
-            ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: onContact,
+            icon: const Icon(Icons.support_agent_rounded),
+            label: const Text('Contact support'),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Tip: keep the exhale longer than the inhale.',
+          style: Theme.of(context).textTheme.bodySmall,
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }
@@ -275,9 +458,10 @@ class _GroundingTab extends StatelessWidget {
           examples: 'Mint, gum, candy, tea',
         ),
         const SizedBox(height: 32),
-        FilledButton(
+        FilledButton.icon(
           onPressed: onContact,
-          child: const Text('Need More Support?'),
+          icon: const Icon(Icons.support_agent_rounded),
+          label: const Text('Need more support?'),
         ),
       ],
     );
@@ -349,6 +533,198 @@ class _GroundingStep extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PlanTab extends ConsumerWidget {
+  const _PlanTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final planAsync = ref.watch(recoveryPlanProvider);
+    final scheme = Theme.of(context).colorScheme;
+
+    Widget chipRow(String title, List<String> items) {
+      if (items.isEmpty) return const SizedBox.shrink();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            title,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: items
+                .map(
+                  (e) => DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: scheme.primary.withValues(alpha: 0.18),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      child: Text(
+                        e,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+          const SizedBox(height: 14),
+        ],
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: <Widget>[
+        SectionCard(
+          child: Row(
+            children: <Widget>[
+              Icon(Icons.checklist_rounded, color: scheme.primary),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Your plan is here when you need it. Keep it short and real.',
+                  style: TextStyle(fontWeight: FontWeight.w600, height: 1.4),
+                ),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () => context.push('/recovery-plan'),
+                child: const Text('Edit'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        planAsync.when(
+          data: (plan) {
+            if (plan == null) {
+              return SectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'No plan yet',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Create a quick plan for high‑risk moments (triggers, warning signs, go‑to actions).',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            height: 1.4,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: () => context.push('/recovery-plan'),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Create plan'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                chipRow('Top triggers', plan.triggers),
+                chipRow('Warning signs', plan.warningSigns),
+                chipRow('Go‑to actions', plan.copingActions),
+                if ((plan.supportMessage ?? '').trim().isNotEmpty) ...[
+                  SectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Support message',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          plan.supportMessage!.trim(),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(height: 1.4),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            await Clipboard.setData(
+                              ClipboardData(text: plan.supportMessage!.trim()),
+                            );
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Copied.')),
+                            );
+                          },
+                          icon: const Icon(Icons.copy),
+                          label: const Text('Copy'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+          loading: () => const SectionCard(
+            child: SizedBox(
+              height: 90,
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+          ),
+          error: (error, _) => SectionCard(
+            child: Text(error.toString()),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: <Widget>[
+            FilledButton.icon(
+              onPressed: () => context.push('/focus/urge'),
+              icon: const Icon(Icons.timer_outlined),
+              label: const Text('Urge timer'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => context.push('/focus'),
+              icon: const Icon(Icons.headphones),
+              label: const Text('Craving audio'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => context.push('/support'),
+              icon: const Icon(Icons.support_agent_rounded),
+              label: const Text('Support'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

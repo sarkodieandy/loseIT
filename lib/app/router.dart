@@ -8,13 +8,16 @@ import '../features/community/presentation/community_screen.dart';
 import '../features/community/presentation/community_thread_screen.dart';
 import '../features/community/presentation/create_group_screen.dart';
 import '../features/community/presentation/create_post_screen.dart';
+import '../features/community/presentation/daily_checkin_screen.dart';
 import '../features/community/presentation/group_detail_screen.dart';
 import '../features/community/presentation/group_chat_screen.dart';
+import '../features/community/presentation/group_members_screen.dart';
 import '../features/challenges/presentation/challenges_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/dm/presentation/dm_chat_screen.dart';
 import '../features/dm/presentation/dm_inbox_screen.dart';
 import '../features/emergency/presentation/emergency_sos_screen.dart';
+import '../features/emergency/presentation/recovery_plan_screen.dart';
 import '../features/habits/presentation/habits_screen.dart';
 import '../features/insights/presentation/insights_screen.dart';
 import '../features/support/presentation/support_chat_screen.dart';
@@ -152,6 +155,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         parentNavigatorKey: rootNavigatorKey,
+        path: '/daily-checkin',
+        builder: (context, state) => const DailyCheckinScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: rootNavigatorKey,
         path: '/groups/new',
         builder: (context, state) => const CreateGroupScreen(),
       ),
@@ -169,6 +177,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           return GroupChatScreen(groupId: id);
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: rootNavigatorKey,
+        path: '/groups/:id/members',
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return GroupMembersScreen(groupId: id);
         },
       ),
       GoRoute(
@@ -250,6 +266,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: rootNavigatorKey,
         path: '/emergency-sos',
         builder: (context, state) => const EmergencySosScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: rootNavigatorKey,
+        path: '/recovery-plan',
+        builder: (context, state) => const RecoveryPlanScreen(),
       ),
       GoRoute(
         parentNavigatorKey: rootNavigatorKey,
