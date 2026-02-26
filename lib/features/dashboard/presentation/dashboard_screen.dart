@@ -667,8 +667,7 @@ class DashboardScreen extends ConsumerWidget {
                             return Column(
                               children: <Widget>[
                                 OutlinedButton.icon(
-                                  onPressed: () =>
-                                      context.push('/journal/new'),
+                                  onPressed: () => context.push('/journal/new'),
                                   icon: const Icon(Icons.edit_note),
                                   label: const Text('Add journal'),
                                 ),
@@ -686,8 +685,7 @@ class DashboardScreen extends ConsumerWidget {
                             children: <Widget>[
                               Expanded(
                                 child: OutlinedButton.icon(
-                                  onPressed: () =>
-                                      context.push('/journal/new'),
+                                  onPressed: () => context.push('/journal/new'),
                                   icon: const Icon(Icons.edit_note),
                                   label: const Text('Add journal'),
                                 ),
@@ -817,7 +815,8 @@ class _SoberFlipTimer extends StatefulWidget {
 
 class _SoberFlipTimerState extends State<_SoberFlipTimer> {
   Timer? _timer;
-  _TimeParts _parts = const _TimeParts(days: 0, hours: 0, minutes: 0, seconds: 0);
+  _TimeParts _parts =
+      const _TimeParts(days: 0, hours: 0, minutes: 0, seconds: 0);
 
   @override
   void initState() {
@@ -851,7 +850,8 @@ class _SoberFlipTimerState extends State<_SoberFlipTimer> {
     final minutes = safeDuration.inMinutes.remainder(60);
     final seconds = safeDuration.inSeconds.remainder(60);
 
-    return _TimeParts(days: days, hours: hours, minutes: minutes, seconds: seconds);
+    return _TimeParts(
+        days: days, hours: hours, minutes: minutes, seconds: seconds);
   }
 
   @override
@@ -1019,8 +1019,7 @@ class _FlipText extends StatelessWidget {
           animation: curved,
           builder: (context, _) {
             final t = curved.value;
-            final tilt =
-                (1 - t) * (isIncoming ? math.pi / 2 : -math.pi / 2);
+            final tilt = (1 - t) * (isIncoming ? math.pi / 2 : -math.pi / 2);
             final transform = Matrix4.identity()
               ..setEntry(3, 2, 0.0022)
               ..rotateX(tilt);
